@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mein Dashboard</title>
+  <style>
+    :root {
+      --bg-deep: #1a1f19;
+      --bg-base: #20281F;
+      --bg-card: #2B332A;
+      --bg-card-hover: #343d33;
+      --bg-elevated: #3a4439;
+      --text-primary: #e8ebe6;
+      --text-secondary: #a8b0a5;
+      --text-muted: #6b7568;
+      --accent: #e8b84a;
+      --accent-dim: #c49a3a;
+      --accent-soft: rgba(232, 184, 74, 0.15);
+      --success: #7cb87a;
+      --danger: #c97a6a;
+      --today-bg: rgba(232, 184, 74, 0.12);
+      --today-border: rgba(232, 184, 74, 0.45);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-xs: 8px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.45;
+      overflow-x: hidden;
+    }
+
+    body {
+      padding: 0;
+      padding-bottom: 40px;
+    }
+
+    /* ─── Layout ─── */
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 16px 14px 60px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding-top: 8px;
+    }
+
+    .header h1 {
+      font-size: 1.35rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: none;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .icon-btn:hover, .icon-btn:active {
+      background: var(--bg-elevated);
+    }
+
+    /* ─── Cards ─── */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    /* ─── Top widgets row ─── */
+    .widgets-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 480px) {
+      .widgets-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .weather-card {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .weather-temp {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--accent);
+    }
+    .weather-desc {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+    .weather-range {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .sidequest-card .sq-text {
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    .sq-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .sq-check input {
+      display: none;
+    }
+    .sq-box {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .sq-check input:checked + .sq-box {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .sq-check input:checked + .sq-box::after {
+      content: "✓";
+      color: var(--bg-deep);
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .sq-label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+    .sq-check input:checked ~ .sq-label {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    /* ─── Habit section ─── */
+    .habit-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .habit-header h2 {
+      font-size: 1.15rem;
+      font-weight: 650;
+    }
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .month-nav button {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: none;
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .month-nav button:hover {
+      background: var(--bg-card-hover);
+    }
+    .month-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      min-width: 120px;
+      text-align: center;
+    }
+
+    /* Group tabs */
+    .group-tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      margin-bottom: 8px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .group-tabs::-webkit-scrollbar { display: none; }
+
+    .group-tab {
+      flex-shrink: 0;
+      padding: 7px 14px;
+      border-radius: 20px;
+      border: none;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .group-tab.active {
+      background: var(--accent);
+      color: var(--bg-deep);
+      font-weight: 600;
+    }
+    .group-tab:hover:not(.active) {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    /* Habit table */
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: var(--radius-sm);
+      margin: 0 -4px;
+    }
+
+    .habit-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      min-width: 100%;
+    }
+
+    .habit-table th,
+    .habit-table td {
+      padding: 6px 4px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .habit-table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-card);
+      z-index: 2;
+      padding-bottom: 10px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      max-width: 56px;
+    }
+
+    .habit-table thead th .habit-emoji {
+      font-size: 1.2rem;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .habit-table thead th .habit-name {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 52px;
+      margin: 0 auto;
+    }
+
+    .habit-table .day-cell {
+      text-align: left;
+      padding-left: 8px;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      min-width: 42px;
+      font-weight: 500;
+    }
+
+    .habit-table tr.today-row {
+      background: var(--today-bg);
+    }
+    .habit-table tr.today-row .day-cell {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .habit-table tr.today-row td:first-child {
+      border-left: 3px solid var(--accent);
+      border-radius: 4px 0 0 4px;
+    }
+
+    .check-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--text-muted);
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      padding: 0;
+    }
+    .check-btn.done {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .check-btn.done::after {
+      content: "✓";
+      color: var(--bg-deep);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .check-btn:hover:not(.done) {
+      border-color: var(--accent-dim);
+      background: var(--accent-soft);
+    }
+
+    /* Habit manage buttons */
+    .habit-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 9px 14px;
+      border-radius: 12px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 550;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg-deep);
+    }
+    .btn-primary:hover { background: var(--accent-dim); }
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    .btn-secondary:hover { background: var(--bg-card-hover); }
+    .btn-danger {
+      background: rgba(201, 122, 106, 0.2);
+      color: var(--danger);
+    }
+    .btn-danger:hover { background: rgba(201, 122, 106, 0.35); }
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      border-radius: 10px;
+    }
+
+    /* ─── Year overview ─── */
+    .year-view {
+      display: none;
+    }
+    .year-view.active {
+      display: block;
+    }
+    .year-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .year-nav h2 {
+      font-size: 1.3rem;
+      font-weight: 650;
+      min-width: 80px;
+      text-align: center;
+    }
+    .months-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 400px) {
+      .months-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .month-card {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      padding: 14px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      border: 2px solid transparent;
+    }
+    .month-card:hover {
+      background: var(--bg-card-hover);
+    }
+    .month-card:active { transform: scale(0.97); }
+    .month-card.current {
+      border-color: var(--accent);
+    }
+    .month-card .m-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .progress-ring {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 6px;
+      position: relative;
+    }
+    .progress-ring svg {
+      transform: rotate(-90deg);
+    }
+    .progress-ring .bg {
+      fill: none;
+      stroke: var(--bg-base);
+      stroke-width: 5;
+    }
+    .progress-ring .fg {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 5;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.4s ease;
+    }
+    .progress-ring .pct {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 650;
+      color: var(--text-secondary);
+    }
+
+    /* ─── Todos ─── */
+    .todo-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .todo-input-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--bg-elevated);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .todo-input-row input:focus {
+      border-color: var(--accent-dim);
+    }
+    .todo-input-row input::placeholder {
+      color: var(--text-muted);
+    }
+    .todo-list {
+      list-style: none;
+    }
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .todo-item:last-child { border-bottom: none; }
+    .todo-item .todo-check {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--text-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .todo-item.done .todo-check {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    .todo-item.done .todo-check::after {
+      content: "✓";
+      color: var(--bg-deep);
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .todo-item .todo-text {
+      flex: 1;
+      font-size: 0.95rem;
+    }
+    .todo-item.done .todo-text {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+    .todo-item .todo-del {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      opacity: 0.6;
+    }
+    .todo-item .todo-del:hover {
+      opacity: 1;
+      color: var(--danger);
+    }
+
+    /* ─── Notes ─── */
+    .notes-area {
+      width: 100%;
+      min-height: 110px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--bg-elevated);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      line-height: 1.5;
+    }
+    .notes-area:focus {
+      border-color: var(--accent-dim);
+    }
+    .notes-area::placeholder {
+      color: var(--text-muted);
+    }
+    .notes-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* ─── Modals ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .modal {
+      background: var(--bg-card);
+      border-radius: 20px 20px 16px 16px;
+      padding: 22px 18px 20px;
+      width: 100%;
+      max-width: 400px;
+      max-height: 85vh;
+      overflow-y: auto;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(40px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal h3 {
+      font-size: 1.15rem;
+      font-weight: 650;
+      margin-bottom: 16px;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 550;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 11px 13px;
+      border-radius: 12px;
+      border: 1px solid var(--bg-elevated);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--accent-dim);
+    }
+    .form-group select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a8b0a5' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .emoji-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .emoji-opt {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      background: var(--bg-elevated);
+      font-size: 1.25rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s;
+    }
+    .emoji-opt.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .modal-actions .btn {
+      flex: 1;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    /* Manage list */
+    .manage-list {
+      list-style: none;
+      margin-bottom: 12px;
+    }
+    .manage-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .manage-item:last-child { border-bottom: none; }
+    .manage-item .mi-emoji {
+      font-size: 1.3rem;
+    }
+    .manage-item .mi-name {
+      flex: 1;
+      font-size: 0.95rem;
+    }
+    .manage-item .mi-group {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Empty state */
+    .empty-hint {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Detail view hide when year open */
+    .detail-view.hidden {
+      display: none;
+    }
+
+    /* Back button in year view */
+    .back-btn {
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <div class="header">
+      <h1>Dashboard</h1>
+      <div class="header-actions">
+        <button class="icon-btn" id="btnYear" title="Jahresübersicht">📅</button>
+        <button class="icon-btn" id="btnManage" title="Gewohnheiten verwalten">⚙️</button>
+      </div>
+    </div>
+
+    <!-- DETAIL VIEW -->
+    <div class="detail-view" id="detailView">
+      <!-- Widgets -->
+      <div class="widgets-row">
+        <div class="card weather-card">
+          <div class="card-title">Wetter</div>
+          <div class="weather-temp" id="weatherTemp">–°</div>
+          <div class="weather-desc" id="weatherDesc">Standort wird ermittelt…</div>
+          <div class="weather-range" id="weatherRange"></div>
+        </div>
+        <div class="card sidequest-card">
+          <div class="card-title">Tägliche Sidequest</div>
+          <div class="sq-text" id="sidequestText">Lade…</div>
+          <label class="sq-check">
+            <input type="checkbox" id="sidequestCheck" />
+            <span class="sq-box"></span>
+            <span class="sq-label">Erledigt</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Habit Tracker -->
+      <div class="card">
+        <div class="habit-header">
+          <h2>Gewohnheiten</h2>
+          <div class="month-nav">
+            <button id="prevMonth" aria-label="Vorheriger Monat">‹</button>
+            <span class="month-label" id="monthLabel">–</span>
+            <button id="nextMonth" aria-label="Nächster Monat">›</button>
+          </div>
+        </div>
+
+        <div class="group-tabs" id="groupTabs"></div>
+
+        <div class="table-wrap">
+          <table class="habit-table" id="habitTable">
+            <thead id="habitHead"></thead>
+            <tbody id="habitBody"></tbody>
+          </table>
+        </div>
+
+        <div class="habit-actions">
+          <button class="btn btn-primary btn-sm" id="btnAddHabit">+ Gewohnheit</button>
+          <button class="btn btn-secondary btn-sm" id="btnAddGroup">+ Gruppe</button>
+        </div>
+      </div>
+
+      <!-- To-Dos -->
+      <div class="card">
+        <div class="card-title">To-Dos</div>
+        <div class="todo-input-row">
+          <input type="text" id="todoInput" placeholder="Neues To-Do…" maxlength="120" />
+          <button class="btn btn-primary btn-sm" id="btnAddTodo">+</button>
+        </div>
+        <ul class="todo-list" id="todoList"></ul>
+      </div>
+
+      <!-- Notes -->
+      <div class="card">
+        <div class="card-title">Notizen</div>
+        <textarea class="notes-area" id="notesArea" placeholder="Schreib hier frei drauf los…"></textarea>
+        <div class="notes-hint">Wird automatisch gespeichert</div>
+      </div>
+    </div>
+
+    <!-- YEAR VIEW -->
+    <div class="year-view" id="yearView">
+      <button class="btn btn-secondary back-btn" id="btnBackDetail">← Zurück</button>
+      <div class="year-nav">
+        <button class="icon-btn" id="prevYear">‹</button>
+        <h2 id="yearLabel">2026</h2>
+        <button class="icon-btn" id="nextYear">›</button>
+      </div>
+      <div class="months-grid" id="monthsGrid"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Habit -->
+  <div class="modal-overlay" id="modalAddHabit">
+    <div class="modal">
+      <h3>Neue Gewohnheit</h3>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="habitName" placeholder="z. B. Meditieren" maxlength="30" />
+      </div>
+      <div class="form-group">
+        <label>Icon / Emoji</label>
+        <div class="emoji-picker" id="emojiPicker"></div>
+        <input type="hidden" id="habitEmoji" value="✅" />
+      </div>
+      <div class="form-group">
+        <label>Gruppe</label>
+        <select id="habitGroup"></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelAddHabit">Abbrechen</button>
+        <button class="btn btn-primary" id="confirmAddHabit">Hinzufügen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Group -->
+  <div class="modal-overlay" id="modalAddGroup">
+    <div class="modal">
+      <h3>Neue Gruppe</h3>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="groupName" placeholder="z. B. Sport" maxlength="24" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelAddGroup">Abbrechen</button>
+        <button class="btn btn-primary" id="confirmAddGroup">Anlegen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Manage Habits -->
+  <div class="modal-overlay" id="modalManage">
+    <div class="modal">
+      <h3>Gewohnheiten verwalten</h3>
+      <ul class="manage-list" id="manageList"></ul>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="closeManage" style="flex:1">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirm Delete -->
+  <div class="modal-overlay" id="modalConfirm">
+    <div class="modal">
+      <h3>Löschen?</h3>
+      <p id="confirmText" style="color:var(--text-secondary);margin-bottom:16px;font-size:0.95rem;"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelConfirm">Abbrechen</button>
+        <button class="btn btn-danger" id="confirmDelete">Löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════
+    // DATA & STORAGE
+    // ═══════════════════════════════════════════
+    const STORAGE_KEY = 'myDashboard_v1';
+
+    const DEFAULT_GROUPS = ['Gesundheit', 'Alltag', 'Sonstiges'];
+    const DEFAULT_HABITS = [
+      { id: 'h1', name: 'Trinken', emoji: '💧', group: 'Gesundheit' },
+      { id: 'h2', name: 'Bewegen', emoji: '🏃', group: 'Gesundheit' },
+      { id: 'h3', name: 'Schlafen', emoji: '😴', group: 'Gesundheit' },
+      { id: 'h4', name: 'Aufräumen', emoji: '🧹', group: 'Alltag' },
+      { id: 'h5', name: 'Lesen', emoji: '📖', group: 'Alltag' },
+      { id: 'h6', name: 'Lernen', emoji: '🧠', group: 'Sonstiges' },
+    ];
+
+    const EMOJIS = ['✅','💧','🏃','😴','🧘','🥗','📚','🧹','💪','🎯','🧠','✍️','🎵','🌿','☀️','🛁','🚶','🛏️','🍎','🦷','👁️','🧊','🔥','⚡','🌱','🧩','🎮','📝','🗓️','💡'];
+
+    const SIDEQUESTS = [
+      'Trinke ein großes Glas Wasser.',
+      'Geh 10 Minuten an die frische Luft.',
+      'Mach 20 Kniebeugen.',
+      'Strecke dich für 2 Minuten.',
+      'Leg das Handy für 30 Minuten weg.',
+      'Schreib 3 Dinge auf, für die du dankbar bist.',
+      'Atme 10-mal bewusst tief ein und aus.',
+      'Iss etwas Obst oder Gemüse.',
+      'Räume einen kleinen Bereich auf.',
+      'Lies 5 Seiten in einem Buch.',
+      'Mach 15 Liegestütze (oder kniend).',
+      'Hör 10 Minuten beruhigende Musik.',
+      'Schreib jemandem eine nette Nachricht.',
+      'Geh eine Treppe extra hoch und runter.',
+      'Trink einen Tee ohne Bildschirm.',
+      'Mach 1 Minute Plank.',
+      'Schau 5 Minuten aus dem Fenster und entspanne.',
+      'Putze deine Zähne besonders gründlich.',
+      'Mach 30 Hampelmänner.',
+      'Schreib eine kurze Notiz an dein zukünftiges Ich.',
+      'Steh auf und bewege dich 3 Minuten.',
+      'Trinke ein Glas Wasser, bevor du etwas isst.',
+      'Mach eine kurze Dehnübung für den Nacken.',
+      'Lösche 5 unnötige Apps oder Fotos.',
+      'Setze dir ein kleines Ziel für den Tag.',
+      'Lächle bewusst in den Spiegel.',
+      'Geh barfuß für 2 Minuten (wenn möglich).',
+      'Hör einen kurzen Podcast-Ausschnitt.',
+      'Zeichne etwas Kleines (egal wie).',
+      'Sag „Danke“ zu jemandem.',
+      'Mach 10 tiefe Kniebeugen langsam.',
+      'Schalte alle Benachrichtigungen für 1 Stunde stumm.',
+      'Iss bewusst und ohne Ablenkung eine Mahlzeit.',
+      'Mach 20 Armkreisen.',
+      'Schreib 1 Satz in ein Tagebuch.',
+      'Öffne ein Fenster und atme frische Luft.',
+      'Falte 5 Kleidungsstücke ordentlich.',
+      'Mach eine kurze Augenentspannungsübung.',
+      'Plane deine nächste Mahlzeit bewusst.',
+      'Geh 5 Minuten spazieren – auch nur um den Block.',
+      'Trinke Wasser statt Kaffee/Softdrink.',
+      'Mach 15 Sekunden Schulterkreisen.',
+      'Lösche 3 E-Mails oder Nachrichten, die dich belasten.',
+      'Setze dich 2 Minuten still hin und beobachte deinen Atem.',
+      'Mach etwas Kreatives für 5 Minuten.',
+      'Prüfe deine Haltung und richte dich auf.',
+      'Trinke ein Glas Wasser und zähle bis 20 dabei.',
+      'Mach 10 Ausfallschritte (pro Bein).',
+      'Schreib eine positive Affirmation auf.',
+      'Schalte das Licht eine Stunde früher dimmer.',
+    ];
+
+    let state = {
+      groups: [...DEFAULT_GROUPS],
+      habits: [...DEFAULT_HABITS],
+      checks: {},       // "YYYY-MM-DD_habitId" -> true
+      todos: [],        // {id, text, done}
+      notes: '',
+      sidequestDone: {}, // "YYYY-MM-DD" -> true
+      activeGroup: 'Gesundheit',
+      viewYear: null,
+      viewMonth: null,  // 0-11
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          state.groups = saved.groups || state.groups;
+          state.habits = saved.habits || state.habits;
+          state.checks = saved.checks || {};
+          state.todos = saved.todos || [];
+          state.notes = saved.notes || '';
+          state.sidequestDone = saved.sidequestDone || {};
+          if (saved.activeGroup && state.groups.includes(saved.activeGroup)) {
+            state.activeGroup = saved.activeGroup;
+          }
+        }
+      } catch (e) { console.warn('Load failed', e); }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          groups: state.groups,
+          habits: state.habits,
+          checks: state.checks,
+          todos: state.todos,
+          notes: state.notes,
+          sidequestDone: state.sidequestDone,
+          activeGroup: state.activeGroup,
+        }));
+      } catch (e) { console.warn('Save failed', e); }
+    }
+
+    // ═══════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════
+    const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    const MONTH_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+    function todayStr() {
+      const d = new Date();
+      return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    function dateKey(y, m, d) {
+      return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+
+    function daysInMonth(y, m) {
+      return new Date(y, m + 1, 0).getDate();
+    }
+
+    function uid() {
+      return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    // Deterministic daily sidequest
+    function getSidequestForDate(dateStr) {
+      let hash = 0;
+      for (let i = 0; i < dateStr.length; i++) {
+        hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+        hash |= 0;
+      }
+      const idx = Math.abs(hash) % SIDEQUESTS.length;
+      return SIDEQUESTS[idx];
+    }
+
+    // ═══════════════════════════════════════════
+    // RENDER: HABIT TABLE
+    // ═══════════════════════════════════════════
+    function renderGroupTabs() {
+      const el = document.getElementById('groupTabs');
+      el.innerHTML = state.groups.map(g =>
+        `<button class="group-tab ${g === state.activeGroup ? 'active' : ''}" data-group="${g}">${g}</button>`
+      ).join('');
+      el.querySelectorAll('.group-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.activeGroup = btn.dataset.group;
+          saveState();
+          renderGroupTabs();
+          renderHabitTable();
+        });
+      });
+    }
+
+    function renderHabitTable() {
+      const y = state.viewYear;
+      const m = state.viewMonth;
+      document.getElementById('monthLabel').textContent = `${MONTH_NAMES[m]} ${y}`;
+
+      const habits = state.habits.filter(h => h.group === state.activeGroup);
+      const head = document.getElementById('habitHead');
+      const body = document.getElementById('habitBody');
+
+      if (habits.length === 0) {
+        head.innerHTML = '';
+        body.innerHTML = `<tr><td colspan="20" class="empty-hint">Keine Gewohnheiten in dieser Gruppe.<br>Füge welche hinzu!</td></tr>`;
+        return;
+      }
+
+      head.innerHTML = `<tr>
+        <th style="text-align:left;padding-left:8px;min-width:42px;">Tag</th>
+        ${habits.map(h => `<th title="${h.name}"><span class="habit-emoji">${h.emoji}</span><span class="habit-name">${h.name}</span></th>`).join('')}
+      </tr>`;
+
+      const days = daysInMonth(y, m);
+      const today = new Date();
+      const isCurrentMonth = today.getFullYear() === y && today.getMonth() === m;
+      const todayDate = today.getDate();
+
+      let rows = '';
+      for (let d = 1; d <= days; d++) {
+        const key = dateKey(y, m, d);
+        const isToday = isCurrentMonth && d === todayDate;
+        rows += `<tr class="${isToday ? 'today-row' : ''}">
+          <td class="day-cell">${d}</td>
+          ${habits.map(h => {
+            const ck = key + '_' + h.id;
+            const done = !!state.checks[ck];
+            return `<td><button class="check-btn ${done ? 'done' : ''}" data-key="${ck}" aria-label="${h.name} Tag ${d}"></button></td>`;
+          }).join('')}
+        </tr>`;
+      }
+      body.innerHTML = rows;
+
+      body.querySelectorAll('.check-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const k = btn.dataset.key;
+          if (state.checks[k]) {
+            delete state.checks[k];
+            btn.classList.remove('done');
+          } else {
+            state.checks[k] = true;
+            btn.classList.add('done');
+          }
+          saveState();
+        });
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // RENDER: YEAR OVERVIEW
+    // ═══════════════════════════════════════════
+    function renderYearView() {
+      document.getElementById('yearLabel').textContent = state.viewYear;
+      const grid = document.getElementById('monthsGrid');
+      const today = new Date();
+      const currentY = today.getFullYear();
+      const currentM = today.getMonth();
+
+      let html = '';
+      for (let m = 0; m < 12; m++) {
+        const days = daysInMonth(state.viewYear, m);
+        const habits = state.habits;
+        let totalPossible = 0;
+        let totalDone = 0;
+
+        // Only count days up to today for current month/year, full for past
+        let maxDay = days;
+        if (state.viewYear === currentY && m === currentM) {
+          maxDay = today.getDate();
+        } else if (state.viewYear > currentY || (state.viewYear === currentY && m > currentM)) {
+          maxDay = 0; // future
+        }
+
+        if (habits.length > 0 && maxDay > 0) {
+          totalPossible = maxDay * habits.length;
+          for (let d = 1; d <= maxDay; d++) {
+            const key = dateKey(state.viewYear, m, d);
+            habits.forEach(h => {
+              if (state.checks[key + '_' + h.id]) totalDone++;
+            });
+          }
+        }
+
+        const pct = totalPossible > 0 ? Math.round((totalDone / totalPossible) * 100) : 0;
+        const r = 22;
+        const circ = 2 * Math.PI * r;
+        const offset = circ - (pct / 100) * circ;
+        const isCurrent = state.viewYear === currentY && m === currentM;
+
+        html += `<div class="month-card ${isCurrent ? 'current' : ''}" data-month="${m}">
+          <div class="m-name">${MONTH_SHORT[m]}</div>
+          <div class="progress-ring">
+            <svg width="52" height="52" viewBox="0 0 52 52">
+              <circle class="bg" cx="26" cy="26" r="${r}"></circle>
+              <circle class="fg" cx="26" cy="26" r="${r}"
+                stroke-dasharray="${circ}" stroke-dashoffset="${offset}"></circle>
+            </svg>
+            <div class="pct">${pct}%</div>
+          </div>
+        </div>`;
+      }
+      grid.innerHTML = html;
+
+      grid.querySelectorAll('.month-card').forEach(card => {
+        card.addEventListener('click', () => {
+          state.viewMonth = parseInt(card.dataset.month, 10);
+          showDetailView();
+          renderHabitTable();
+        });
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // RENDER: TODOS & NOTES & SIDEQUEST
+    // ═══════════════════════════════════════════
+    function renderTodos() {
+      const list = document.getElementById('todoList');
+      if (state.todos.length === 0) {
+        list.innerHTML = '<li class="empty-hint" style="padding:12px 0;">Keine To-Dos</li>';
+        return;
+      }
+      list.innerHTML = state.todos.map(t => `
+        <li class="todo-item ${t.done ? 'done' : ''}" data-id="${t.id}">
+          <div class="todo-check" data-id="${t.id}"></div>
+          <span class="todo-text">${escapeHtml(t.text)}</span>
+          <button class="todo-del" data-id="${t.id}" title="Löschen">×</button>
+        </li>
+      `).join('');
+
+      list.querySelectorAll('.todo-check').forEach(el => {
+        el.addEventListener('click', () => {
+          const t = state.todos.find(x => x.id === el.dataset.id);
+          if (t) { t.done = !t.done; saveState(); renderTodos(); }
+        });
+      });
+      list.querySelectorAll('.todo-del').forEach(el => {
+        el.addEventListener('click', () => {
+          state.todos = state.todos.filter(x => x.id !== el.dataset.id);
+          saveState();
+          renderTodos();
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function renderSidequest() {
+      const today = todayStr();
+      document.getElementById('sidequestText').textContent = getSidequestForDate(today);
+      const cb = document.getElementById('sidequestCheck');
+      cb.checked = !!state.sidequestDone[today];
+    }
+
+    function renderNotes() {
+      document.getElementById('notesArea').value = state.notes;
+    }
+
+    // ═══════════════════════════════════════════
+    // WEATHER
+    // ═══════════════════════════════════════════
+    function fetchWeather(lat, lon) {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          const temp = Math.round(data.current.temperature_2m);
+          const code = data.current.weather_code;
+          const max = Math.round(data.daily.temperature_2m_max[0]);
+          const min = Math.round(data.daily.temperature_2m_min[0]);
+          document.getElementById('weatherTemp').textContent = temp + '°';
+          document.getElementById('weatherDesc').textContent = weatherCodeToText(code);
+          document.getElementById('weatherRange').textContent = `↓ ${min}°  ↑ ${max}°`;
+        })
+        .catch(() => {
+          document.getElementById('weatherDesc').textContent = 'Wetter nicht verfügbar';
+        });
+    }
+
+    function weatherCodeToText(code) {
+      const map = {
+        0: 'Klar', 1: 'Überwiegend klar', 2: 'Teilweise bewölkt', 3: 'Bedeckt',
+        45: 'Nebel', 48: 'Nebel',
+        51: 'Leichter Nieselregen', 53: 'Nieselregen', 55: 'Starker Nieselregen',
+        61: 'Leichter Regen', 63: 'Regen', 65: 'Starker Regen',
+        71: 'Leichter Schnee', 73: 'Schnee', 75: 'Starker Schnee',
+        80: 'Regenschauer', 81: 'Regenschauer', 82: 'Starke Schauer',
+        95: 'Gewitter', 96: 'Gewitter mit Hagel', 99: 'Gewitter mit Hagel',
+      };
+      return map[code] || 'Wetter';
+    }
+
+    function initWeather() {
+      if (!navigator.geolocation) {
+        document.getElementById('weatherDesc').textContent = 'Standort nicht verfügbar';
+        // Fallback: Berlin
+        fetchWeather(52.52, 13.41);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+        () => {
+          document.getElementById('weatherDesc').textContent = 'Standort abgelehnt – Fallback Berlin';
+          fetchWeather(52.52, 13.41);
+        },
+        { timeout: 8000, maximumAge: 600000 }
+      );
+    }
+
+    // ═══════════════════════════════════════════
+    // MODALS
+    // ═══════════════════════════════════════════
+    function openModal(id) {
+      document.getElementById(id).classList.add('open');
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    // Add Habit
+    function openAddHabit() {
+      document.getElementById('habitName').value = '';
+      document.getElementById('habitEmoji').value = '✅';
+      const picker = document.getElementById('emojiPicker');
+      picker.innerHTML = EMOJIS.map(e =>
+        `<button type="button" class="emoji-opt ${e === '✅' ? 'selected' : ''}" data-emoji="${e}">${e}</button>`
+      ).join('');
+      picker.querySelectorAll('.emoji-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+          picker.querySelectorAll('.emoji-opt').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          document.getElementById('habitEmoji').value = btn.dataset.emoji;
+        });
+      });
+      const sel = document.getElementById('habitGroup');
+      sel.innerHTML = state.groups.map(g => `<option value="${g}">${g}</option>`).join('');
+      if (state.activeGroup) sel.value = state.activeGroup;
+      openModal('modalAddHabit');
+      setTimeout(() => document.getElementById('habitName').focus(), 100);
+    }
+
+    function confirmAddHabit() {
+      const name = document.getElementById('habitName').value.trim();
+      if (!name) { document.getElementById('habitName').focus(); return; }
+      const emoji = document.getElementById('habitEmoji').value || '✅';
+      const group = document.getElementById('habitGroup').value;
+      state.habits.push({ id: uid(), name, emoji, group });
+      state.activeGroup = group;
+      saveState();
+      closeModal('modalAddHabit');
+      renderGroupTabs();
+      renderHabitTable();
+    }
+
+    // Add Group
+    function openAddGroup() {
+      document.getElementById('groupName').value = '';
+      openModal('modalAddGroup');
+      setTimeout(() => document.getElementById('groupName').focus(), 100);
+    }
+
+    function confirmAddGroup() {
+      const name = document.getElementById('groupName').value.trim();
+      if (!name) { document.getElementById('groupName').focus(); return; }
+      if (state.groups.includes(name)) {
+        alert('Gruppe existiert bereits.');
+        return;
+      }
+      state.groups.push(name);
+      state.activeGroup = name;
+      saveState();
+      closeModal('modalAddGroup');
+      renderGroupTabs();
+      renderHabitTable();
+    }
+
+    // Manage
+    function openManage() {
+      const list = document.getElementById('manageList');
+      if (state.habits.length === 0) {
+        list.innerHTML = '<li class="empty-hint">Keine Gewohnheiten</li>';
+      } else {
+        list.innerHTML = state.habits.map(h => `
+          <li class="manage-item">
+            <span class="mi-emoji">${h.emoji}</span>
+            <div style="flex:1">
+              <div class="mi-name">${escapeHtml(h.name)}</div>
+              <div class="mi-group">${escapeHtml(h.group)}</div>
+            </div>
+            <button class="btn btn-danger btn-sm" data-id="${h.id}">Löschen</button>
+          </li>
+        `).join('');
+        list.querySelectorAll('button[data-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            const h = state.habits.find(x => x.id === id);
+            pendingDeleteId = id;
+            document.getElementById('confirmText').textContent =
+              `„${h ? h.name : ''}“ wirklich löschen? Alle Häkchen dazu gehen verloren.`;
+            closeModal('modalManage');
+            openModal('modalConfirm');
+          });
+        });
+      }
+      openModal('modalManage');
+    }
+
+    let pendingDeleteId = null;
+
+    function confirmDelete() {
+      if (pendingDeleteId) {
+        state.habits = state.habits.filter(h => h.id !== pendingDeleteId);
+        // Clean checks
+        Object.keys(state.checks).forEach(k => {
+          if (k.endsWith('_' + pendingDeleteId)) delete state.checks[k];
+        });
+        pendingDeleteId = null;
+        saveState();
+        renderGroupTabs();
+        renderHabitTable();
+      }
+      closeModal('modalConfirm');
+    }
+
+    // ═══════════════════════════════════════════
+    // VIEW SWITCHING
+    // ═══════════════════════════════════════════
+    function showDetailView() {
+      document.getElementById('detailView').classList.remove('hidden');
+      document.getElementById('yearView').classList.remove('active');
+    }
+    function showYearView() {
+      document.getElementById('detailView').classList.add('hidden');
+      document.getElementById('yearView').classList.add('active');
+      renderYearView();
+    }
+
+    // ═══════════════════════════════════════════
+    // INIT & EVENTS
+    // ═══════════════════════════════════════════
+    function init() {
+      loadState();
+      const now = new Date();
+      state.viewYear = now.getFullYear();
+      state.viewMonth = now.getMonth();
+
+      renderGroupTabs();
+      renderHabitTable();
+      renderTodos();
+      renderNotes();
+      renderSidequest();
+      initWeather();
+
+      // Month nav
+      document.getElementById('prevMonth').addEventListener('click', () => {
+        state.viewMonth--;
+        if (state.viewMonth < 0) { state.viewMonth = 11; state.viewYear--; }
+        renderHabitTable();
+      });
+      document.getElementById('nextMonth').addEventListener('click', () => {
+        state.viewMonth++;
+        if (state.viewMonth > 11) { state.viewMonth = 0; state.viewYear++; }
+        renderHabitTable();
+      });
+
+      // Year view
+      document.getElementById('btnYear').addEventListener('click', showYearView);
+      document.getElementById('btnBackDetail').addEventListener('click', showDetailView);
+      document.getElementById('prevYear').addEventListener('click', () => {
+        state.viewYear--;
+        renderYearView();
+      });
+      document.getElementById('nextYear').addEventListener('click', () => {
+        state.viewYear++;
+        renderYearView();
+      });
+
+      // Manage / Add
+      document.getElementById('btnManage').addEventListener('click', openManage);
+      document.getElementById('btnAddHabit').addEventListener('click', openAddHabit);
+      document.getElementById('btnAddGroup').addEventListener('click', openAddGroup);
+      document.getElementById('confirmAddHabit').addEventListener('click', confirmAddHabit);
+      document.getElementById('cancelAddHabit').addEventListener('click', () => closeModal('modalAddHabit'));
+      document.getElementById('confirmAddGroup').addEventListener('click', confirmAddGroup);
+      document.getElementById('cancelAddGroup').addEventListener('click', () => closeModal('modalAddGroup'));
+      document.getElementById('closeManage').addEventListener('click', () => closeModal('modalManage'));
+      document.getElementById('cancelConfirm').addEventListener('click', () => {
+        closeModal('modalConfirm');
+        pendingDeleteId = null;
+      });
+      document.getElementById('confirmDelete').addEventListener('click', confirmDelete);
+
+      // Close modals on overlay click
+      document.querySelectorAll('.modal-overlay').forEach(ov => {
+        ov.addEventListener('click', e => {
+          if (e.target === ov) ov.classList.remove('open');
+        });
+      });
+
+      // Todos
+      document.getElementById('btnAddTodo').addEventListener('click', addTodo);
+      document.getElementById('todoInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') addTodo();
+      });
+
+      // Notes auto-save
+      let notesTimer;
+      document.getElementById('notesArea').addEventListener('input', e => {
+        state.notes = e.target.value;
+        clearTimeout(notesTimer);
+        notesTimer = setTimeout(saveState, 400);
+      });
+
+      // Sidequest
+      document.getElementById('sidequestCheck').addEventListener('change', e => {
+        const today = todayStr();
+        if (e.target.checked) state.sidequestDone[today] = true;
+        else delete state.sidequestDone[today];
+        saveState();
+      });
+
+      // Enter in modals
+      document.getElementById('habitName').addEventListener('keydown', e => {
+        if (e.key === 'Enter') confirmAddHabit();
+      });
+      document.getElementById('groupName').addEventListener('keydown', e => {
+        if (e.key === 'Enter') confirmAddGroup();
+      });
+    }
+
+    function addTodo() {
+      const input = document.getElementById('todoInput');
+      const text = input.value.trim();
+      if (!text) return;
+      state.todos.push({ id: uid(), text, done: false });
+      input.value = '';
+      saveState();
+      renderTodos();
+    }
+
+    init();
+  </script>
+</body>
+</html>
