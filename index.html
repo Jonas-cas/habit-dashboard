@@ -7,7 +7,7 @@
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#1a1f19" />
+  <meta name="theme-color" content="#121212" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Dashboard" />
@@ -17,21 +17,21 @@
 
   <style>
     :root {
-      --bg-deep: #1a1f19;
-      --bg-base: #20281F;
-      --bg-card: #2B332A;
-      --bg-card-hover: #343d33;
-      --bg-elevated: #3a4439;
-      --text-primary: #e8ebe6;
-      --text-secondary: #a8b0a5;
-      --text-muted: #6b7568;
-      --accent: #e8b84a;
-      --accent-dim: #c49a3a;
-      --accent-soft: rgba(232, 184, 74, 0.15);
-      --success: #7cb87a;
-      --danger: #c97a6a;
-      --today-bg: rgba(232, 184, 74, 0.12);
-      --today-border: rgba(232, 184, 74, 0.45);
+      --bg-deep: #121212;
+      --bg-base: #1c1c1c;
+      --bg-card: #262626;
+      --bg-card-hover: #303030;
+      --bg-elevated: #3a3a3a;
+      --text-primary: #f2f2f0;
+      --text-secondary: #a8a8a4;
+      --text-muted: #707070;
+      --accent: #d8d8d4;
+      --accent-dim: #aeaeaa;
+      --accent-soft: rgba(216, 216, 212, 0.15);
+      --success: #c2c2be;
+      --danger: #8c8c88;
+      --today-bg: rgba(216, 216, 212, 0.12);
+      --today-border: rgba(216, 216, 212, 0.45);
       --radius: 16px;
       --radius-sm: 10px;
       --radius-xs: 8px;
@@ -1237,6 +1237,7 @@
     const EMOJIS = ['✅','💧','🏃','😴','🧘','🥗','📚','🧹','💪','🎯','🧠','✍️','🎵','🌿','☀️','🛁','🚶','🛏️','🍎','🦷','👁️','🧊','🔥','⚡','🌱','🧩','🎮','📝','🗓️','💡'];
 
     const ACCENT_THEMES = {
+      grau:   { label: 'Grau',   accent: '#d8d8d4', dim: '#aeaeaa' },
       gold:   { label: 'Gold',   accent: '#e8b84a', dim: '#c49a3a' },
       blue:   { label: 'Blau',   accent: '#5aa9e6', dim: '#4489c2' },
       green:  { label: 'Grün',   accent: '#7cc576', dim: '#5fa85a' },
@@ -1349,7 +1350,7 @@
         lastText: null,
       },
       settings: {
-        accentTheme: 'gold',
+        accentTheme: 'grau',
         animations: true,
         defaultDifficulty: 'mittel',
       },
@@ -1725,7 +1726,7 @@
     // APPEARANCE / SETTINGS APPLY
     // ═══════════════════════════════════════════
     function applyAccentTheme(key) {
-      const t = ACCENT_THEMES[key] || ACCENT_THEMES.gold;
+      const t = ACCENT_THEMES[key] || ACCENT_THEMES.grau;
       const root = document.documentElement.style;
       root.setProperty('--accent', t.accent);
       root.setProperty('--accent-dim', t.dim);
