@@ -338,7 +338,7 @@
       max-width: 52px;
       margin: 0 auto;
     }
-    .habit-table thead th .habit-streak {
+    .habit-table .habit-streak {
       display: block;
       min-height: 1.2em;
       margin-top: 2px;
@@ -349,9 +349,57 @@
       white-space: normal;
       word-break: break-word;
     }
-    .habit-table thead th .habit-streak.has-streak {
+    .habit-table .habit-streak.has-streak {
       color: var(--accent);
       cursor: default;
+    }
+
+    /* Wochenansicht: Tage als Spalten, Gewohnheiten als Zeilen (transponiert zur Monatsansicht) */
+    .habit-table.week-mode thead th .week-day-name {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .habit-table.week-mode thead th .week-day-date {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.95rem;
+      font-weight: 650;
+      color: var(--text-primary);
+    }
+    .habit-table.week-mode thead th.today-col {
+      background: var(--today-bg);
+      border-top: 3px solid var(--today-border);
+    }
+    .habit-table.week-mode thead th.today-col .week-day-name,
+    .habit-table.week-mode thead th.today-col .week-day-date {
+      color: var(--accent);
+    }
+    .habit-table.week-mode tbody td.today-col {
+      background: var(--today-bg);
+    }
+    .habit-table.week-mode td.habit-row-label {
+      text-align: left;
+      padding-left: 8px;
+      white-space: nowrap;
+    }
+    .habit-table.week-mode td.habit-row-label .habit-emoji {
+      display: inline-block;
+      font-size: 1.05rem;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .habit-table.week-mode td.habit-row-label .habit-name {
+      display: inline-block;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+    .habit-table.week-mode td.habit-row-label .habit-streak {
+      margin-top: 3px;
+      margin-left: 1px;
     }
 
     .habit-table .day-cell {
@@ -1898,7 +1946,7 @@
       monday.setDate(monday.getDate() + days);
       state.currentWeekStart = dateKey(monday.getFullYear(), monday.getMonth(), monday.getDate());
       renderViewModeUI();
-      // TODO: Wochentabelle neu rendern, sobald das Wochen-Rendering implementiert ist.
+      renderHabitTable();
     }
 
     // Baut das Streak-Badge (🔥 currentStreak, Rekord als Tooltip) für eine einzelne Gewohnheit.
@@ -1913,17 +1961,54 @@
     }
 
     // Aktualisiert NUR das Streak-Badge einer einzelnen Gewohnheit im bereits gerenderten
-    // Tabellenkopf, ohne die komplette Tabelle neu zu bauen bzw. calculateStreak() für alle
-    // anderen Gewohnheiten erneut aufzurufen – wichtig, damit ein einzelner Tages-Klick nicht
-    // die gesamte Check-Historie aller Gewohnheiten neu durchläuft.
+    // Tabellenkopf (Monatsansicht) bzw. der Zeilen-Beschriftung (Wochenansicht), ohne die
+    // komplette Tabelle neu zu bauen bzw. calculateStreak() für alle anderen Gewohnheiten
+    // erneut aufzurufen – wichtig, damit ein einzelner Tages-Klick nicht die gesamte
+    // Check-Historie aller Gewohnheiten neu durchläuft.
     function updateHabitStreakBadge(habitId) {
-      const th = document.querySelector(`#habitHead th[data-habit="${habitId}"]`);
-      if (!th) return;
-      const badge = th.querySelector('.habit-streak');
+      const cell = document.querySelector(
+        `#habitHead th[data-habit="${habitId}"], #habitBody td[data-habit="${habitId}"]`
+      );
+      if (!cell) return;
+      const badge = cell.querySelector('.habit-streak');
       if (badge) badge.outerHTML = habitStreakBadgeHtml(habitId);
     }
 
+    // Hängt den Check-Toggle-Klick-Handler an alle .check-btn in `container` – identisch für
+    // Monats- und Wochenansicht, da beide dieselben state.checks-Einträge ("YYYY-MM-DD_habitId")
+    // verwenden.
+    function attachCheckButtonHandlers(container) {
+      container.querySelectorAll('.check-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const k = btn.dataset.key;
+          if (state.checks[k]) {
+            delete state.checks[k];
+            btn.classList.remove('done');
+          } else {
+            state.checks[k] = true;
+            btn.classList.add('done');
+          }
+          saveState();
+          // Nur das Streak-Badge dieser einen Gewohnheit neu berechnen, nicht die ganze Tabelle.
+          updateHabitStreakBadge(btn.dataset.habit);
+        });
+      });
+    }
+
+    // Dispatcher: rendert je nach state.settings.viewMode entweder die Monats- oder die
+    // Wochenansicht in dieselbe Tabelle (kein doppeltes Rendering, keine zwei Tabellen im DOM).
     function renderHabitTable() {
+      const table = document.getElementById('habitTable');
+      if (state.settings.viewMode === 'week') {
+        table.classList.add('week-mode');
+        renderWeekTable();
+      } else {
+        table.classList.remove('week-mode');
+        renderMonthTable();
+      }
+    }
+
+    function renderMonthTable() {
       const y = state.viewYear;
       const m = state.viewMonth;
       document.getElementById('monthLabel').textContent = `${MONTH_NAMES[m]} ${y}`;
@@ -1962,22 +2047,57 @@
         </tr>`;
       }
       body.innerHTML = rows;
+      attachCheckButtonHandlers(body);
+    }
 
-      body.querySelectorAll('.check-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const k = btn.dataset.key;
-          if (state.checks[k]) {
-            delete state.checks[k];
-            btn.classList.remove('done');
-          } else {
-            state.checks[k] = true;
-            btn.classList.add('done');
-          }
-          saveState();
-          // Nur das Streak-Badge dieser einen Gewohnheit neu berechnen, nicht die ganze Tabelle.
-          updateHabitStreakBadge(btn.dataset.habit);
-        });
+    const WEEKDAY_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+    function renderWeekTable() {
+      document.getElementById('weekLabel').textContent = formatWeekLabel(state.currentWeekStart);
+
+      const habits = state.habits.filter(h => h.group === state.activeGroup);
+      const head = document.getElementById('habitHead');
+      const body = document.getElementById('habitBody');
+
+      if (habits.length === 0) {
+        head.innerHTML = '';
+        body.innerHTML = `<tr><td colspan="8" class="empty-hint">Keine Gewohnheiten in dieser Gruppe.<br>Füge welche hinzu!</td></tr>`;
+        return;
+      }
+
+      const [wy, wm, wd] = state.currentWeekStart.split('-').map(Number);
+      const weekDates = getWeekDates(new Date(wy, wm - 1, wd));
+      const today = new Date();
+      const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+      head.innerHTML = `<tr>
+        <th style="text-align:left;padding-left:8px;min-width:110px;max-width:none;">Gewohnheit</th>
+        ${weekDates.map((d, i) => {
+          const isToday = dateKey(d.getFullYear(), d.getMonth(), d.getDate()) === todayKey;
+          return `<th class="${isToday ? 'today-col' : ''}">
+            <span class="week-day-name">${WEEKDAY_SHORT[i]}</span>
+            <span class="week-day-date">${d.getDate()}.</span>
+          </th>`;
+        }).join('')}
+      </tr>`;
+
+      let rows = '';
+      habits.forEach(h => {
+        rows += `<tr>
+          <td class="habit-row-label" data-habit="${h.id}" title="${escapeHtml(h.name)}">
+            <span class="habit-emoji">${h.emoji}</span><span class="habit-name">${escapeHtml(h.name)}</span>${habitStreakBadgeHtml(h.id)}
+          </td>
+          ${weekDates.map(d => {
+            const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+            const isToday = key === todayKey;
+            const ck = key + '_' + h.id;
+            const done = !!state.checks[ck];
+            return `<td class="${isToday ? 'today-col' : ''}"><button class="check-btn ${done ? 'done' : ''}" data-key="${ck}" data-habit="${h.id}" aria-label="${escapeHtml(h.name)} ${key}"></button></td>`;
+          }).join('')}
+        </tr>`;
       });
+      body.innerHTML = rows;
+      attachCheckButtonHandlers(body);
     }
 
     // ═══════════════════════════════════════════
@@ -2546,9 +2666,11 @@
       // Monat/Woche-Umschalter
       document.querySelectorAll('#viewModeTabs button').forEach(btn => {
         btn.addEventListener('click', () => {
+          if (btn.dataset.view === state.settings.viewMode) return;
           state.settings.viewMode = btn.dataset.view;
           saveState();
           renderViewModeUI();
+          renderHabitTable();
         });
       });
       document.getElementById('prevWeek').addEventListener('click', () => shiftCurrentWeek(-7));
