@@ -402,6 +402,84 @@
       margin-left: 1px;
     }
 
+    /* ─── Statistik-Ansicht ─── */
+    .stats-bar-row {
+      margin-bottom: 16px;
+    }
+    .stats-bar-row:last-child {
+      margin-bottom: 0;
+    }
+    .stats-bar-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+    .stats-bar-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stats-bar-pct {
+      font-size: 0.88rem;
+      font-weight: 650;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .stats-bar-track {
+      height: 10px;
+      background: var(--bg-elevated);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .stats-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 20px;
+      transition: width 0.4s ease;
+    }
+
+    .stats-habit-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    #statsLineChart {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .stats-chart-grid {
+      stroke: var(--bg-elevated);
+      stroke-width: 1;
+    }
+    .stats-chart-axis-y,
+    .stats-chart-axis-x {
+      fill: var(--text-secondary);
+      font-size: 7.5px;
+    }
+    .stats-chart-line {
+      stroke: var(--accent);
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .stats-chart-dot {
+      fill: var(--accent);
+    }
+
     .habit-table .day-cell {
       text-align: left;
       padding-left: 8px;
@@ -1005,25 +1083,51 @@
             <span class="month-label" id="weekLabel">–</span>
             <button id="nextWeek" aria-label="Nächste Woche">›</button>
           </div>
+          <div class="month-nav" id="statsMonthNav" style="display:none;">
+            <button id="prevStatsMonth" aria-label="Vorheriger Monat">‹</button>
+            <span class="month-label" id="statsMonthLabel">–</span>
+            <button id="nextStatsMonth" aria-label="Nächster Monat">›</button>
+          </div>
+          <div class="month-nav" id="statsYearNav" style="display:none;">
+            <button id="prevStatsYear" aria-label="Vorheriges Jahr">‹</button>
+            <span class="month-label" id="statsYearLabel">–</span>
+            <button id="nextStatsYear" aria-label="Nächstes Jahr">›</button>
+          </div>
         </div>
 
         <div class="group-tabs" id="viewModeTabs">
           <button type="button" class="group-tab" data-view="month">Monat</button>
           <button type="button" class="group-tab" data-view="week">Woche</button>
+          <button type="button" class="group-tab" data-view="stats">📊 Statistik</button>
         </div>
 
         <div class="group-tabs" id="groupTabs"></div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" id="tableWrap">
           <table class="habit-table" id="habitTable">
             <thead id="habitHead"></thead>
             <tbody id="habitBody"></tbody>
           </table>
         </div>
 
-        <div class="habit-actions">
+        <div class="habit-actions" id="habitActions">
           <button class="btn btn-primary btn-sm" id="btnAddHabit">+ Gewohnheit</button>
           <button class="btn btn-secondary btn-sm" id="btnAddGroup">+ Gruppe</button>
+        </div>
+
+        <!-- Statistik-Ansicht: nutzt denselben Umschalt-Mechanismus wie Monat/Woche -->
+        <div id="statsSection" style="display:none;">
+          <div class="group-tabs" id="statsModeTabs">
+            <button type="button" class="group-tab" data-statsmode="month">Monat</button>
+            <button type="button" class="group-tab" data-statsmode="year">Jahr</button>
+          </div>
+
+          <div id="statsMonthView"></div>
+
+          <div id="statsYearView" style="display:none;">
+            <div class="stats-habit-picker" id="statsHabitPicker"></div>
+            <svg id="statsLineChart" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
         </div>
       </div>
 
@@ -1735,7 +1839,8 @@
         colorTheme: 'grau',
         animations: true,
         defaultDifficulty: 'mittel',
-        viewMode: 'month', // 'month' | 'week' – welche Ansicht der Habit-Tabelle aktiv ist
+        viewMode: 'month', // 'month' | 'week' | 'stats' – welche Ansicht der Habit-Tabelle aktiv ist
+        statsMode: 'month', // 'month' | 'year' – Sub-Ansicht innerhalb der Statistik
       },
     };
 
@@ -1972,13 +2077,27 @@
     // blendet Monats- bzw. Wochen-Navigation ein/aus und aktualisiert das Wochen-Label.
     // Das eigentliche Rendering der Wochentabelle folgt in einem separaten Schritt.
     function renderViewModeUI() {
-      const mode = state.settings.viewMode === 'week' ? 'week' : 'month';
+      const mode = ['week', 'stats'].includes(state.settings.viewMode) ? state.settings.viewMode : 'month';
       document.querySelectorAll('#viewModeTabs button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === mode);
       });
       document.getElementById('monthNav').style.display = mode === 'month' ? 'flex' : 'none';
       document.getElementById('weekNav').style.display = mode === 'week' ? 'flex' : 'none';
       document.getElementById('weekLabel').textContent = formatWeekLabel(state.currentWeekStart);
+
+      // Statistik hat eine eigene Monat/Jahr-Navigation; deren Sichtbarkeit steuert
+      // renderStatsPanel() im Detail. Außerhalb der Statistik bleibt sie immer verborgen.
+      if (mode !== 'stats') {
+        document.getElementById('statsMonthNav').style.display = 'none';
+        document.getElementById('statsYearNav').style.display = 'none';
+      }
+
+      // Gruppen-Tabs, Tabelle und Habit-Aktionen gehören nur zu Monat/Woche;
+      // die Statistik-Sektion nur zu 'stats' – sauberes Ein-/Ausblenden, kein doppeltes Rendering.
+      document.getElementById('groupTabs').style.display = mode === 'stats' ? 'none' : 'flex';
+      document.getElementById('tableWrap').style.display = mode === 'stats' ? 'none' : 'block';
+      document.getElementById('habitActions').style.display = mode === 'stats' ? 'none' : 'flex';
+      document.getElementById('statsSection').style.display = mode === 'stats' ? 'block' : 'none';
     }
 
     // Blättert die angezeigte Woche um `days` Tage weiter (±7 für vor/zurück).
@@ -2040,6 +2159,10 @@
     // Dispatcher: rendert je nach state.settings.viewMode entweder die Monats- oder die
     // Wochenansicht in dieselbe Tabelle (kein doppeltes Rendering, keine zwei Tabellen im DOM).
     function renderHabitTable() {
+      if (state.settings.viewMode === 'stats') {
+        // Tabelle ist in der Statistik-Ansicht ausgeblendet – nichts zu rendern.
+        return;
+      }
       const table = document.getElementById('habitTable');
       if (state.settings.viewMode === 'week') {
         table.classList.add('week-mode');
@@ -2140,6 +2263,122 @@
       });
       body.innerHTML = rows;
       attachCheckButtonHandlers(body);
+    }
+
+    // ═══════════════════════════════════════════
+    // RENDER: STATISTIK
+    // ═══════════════════════════════════════════
+    // Dispatcher, analog zu renderHabitTable(): schaltet je nach state.settings.statsMode
+    // zwischen Monats-Balken und Jahres-Liniendiagramm um (dieselbe Statistik-Sektion,
+    // kein doppeltes Rendering).
+    function renderStatsPanel() {
+      const mode = state.settings.statsMode === 'year' ? 'year' : 'month';
+      document.querySelectorAll('#statsModeTabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.statsmode === mode);
+      });
+      document.getElementById('statsMonthNav').style.display = mode === 'month' ? 'flex' : 'none';
+      document.getElementById('statsYearNav').style.display = mode === 'year' ? 'flex' : 'none';
+      document.getElementById('statsMonthView').style.display = mode === 'month' ? 'block' : 'none';
+      document.getElementById('statsYearView').style.display = mode === 'year' ? 'block' : 'none';
+
+      if (mode === 'month') {
+        renderStatsMonthView();
+      } else {
+        renderStatsYearView();
+      }
+    }
+
+    // Monats-Ansicht: Erfüllungsquote aller Gewohnheiten als horizontale Balken.
+    function renderStatsMonthView() {
+      document.getElementById('statsMonthLabel').textContent = `${MONTH_NAMES[state.statsMonth]} ${state.statsYear}`;
+
+      const container = document.getElementById('statsMonthView');
+      const stats = getAllHabitsMonthStats(state.statsYear, state.statsMonth);
+
+      if (stats.length === 0) {
+        container.innerHTML = `<div class="empty-hint">Noch keine Gewohnheiten vorhanden.</div>`;
+        return;
+      }
+
+      container.innerHTML = stats.map(s => {
+        const pct = Math.round(s.quote * 100);
+        return `<div class="stats-bar-row">
+          <div class="stats-bar-top">
+            <span class="stats-bar-label"><span>${s.emoji}</span>${escapeHtml(s.name)}</span>
+            <span class="stats-bar-pct">${pct}%</span>
+          </div>
+          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('');
+    }
+
+    // Jahres-Ansicht: Habit-Auswahl + Liniendiagramm der 12 Monatsquoten des gewählten Habits.
+    function renderStatsYearView() {
+      document.getElementById('statsYearLabel').textContent = String(state.statsYear);
+
+      const picker = document.getElementById('statsHabitPicker');
+      const chart = document.getElementById('statsLineChart');
+
+      if (state.habits.length === 0) {
+        picker.innerHTML = '';
+        chart.innerHTML = '';
+        chart.style.display = 'none';
+        if (!document.getElementById('statsYearEmptyHint')) {
+          picker.insertAdjacentHTML('afterend', '<div class="empty-hint" id="statsYearEmptyHint">Noch keine Gewohnheiten vorhanden.</div>');
+        }
+        return;
+      }
+      document.getElementById('statsYearEmptyHint')?.remove();
+      chart.style.display = 'block';
+
+      if (!state.statsHabitId || !state.habits.some(h => h.id === state.statsHabitId)) {
+        state.statsHabitId = state.habits[0].id;
+      }
+
+      picker.innerHTML = state.habits.map(h =>
+        `<button type="button" class="group-tab ${h.id === state.statsHabitId ? 'active' : ''}" data-habit="${h.id}">${h.emoji} ${escapeHtml(h.name)}</button>`
+      ).join('');
+      picker.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.statsHabitId = btn.dataset.habit;
+          renderStatsYearView();
+        });
+      });
+
+      renderStatsLineChart(state.statsHabitId, state.statsYear);
+    }
+
+    // Zeichnet das Liniendiagramm der 12 Monatsquoten eines Habits als reines Inline-SVG
+    // (keine externe Chart-Library), ausschließlich mit den bestehenden CSS-Variablen gefärbt.
+    function renderStatsLineChart(habitId, year) {
+      const svg = document.getElementById('statsLineChart');
+      const data = getYearStats(habitId, year);
+
+      const width = 320, height = 170;
+      const padLeft = 30, padRight = 10, padTop = 10, padBottom = 22;
+      const plotW = width - padLeft - padRight;
+      const plotH = height - padTop - padBottom;
+
+      const points = data.map((d, i) => ({
+        x: padLeft + (i / 11) * plotW,
+        y: padTop + plotH - d.quote * plotH,
+      }));
+
+      const linePath = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+
+      const gridLines = [0, 0.5, 1].map(frac => {
+        const y = padTop + plotH - frac * plotH;
+        return `<line class="stats-chart-grid" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}"></line>
+                <text class="stats-chart-axis-y" x="${padLeft - 5}" y="${y + 2.5}" text-anchor="end">${Math.round(frac * 100)}</text>`;
+      }).join('');
+
+      const xLabels = points.map((p, i) =>
+        `<text class="stats-chart-axis-x" x="${p.x}" y="${height - 6}" text-anchor="middle">${MONTH_SHORT[i]}</text>`
+      ).join('');
+
+      const dots = points.map(p => `<circle class="stats-chart-dot" cx="${p.x}" cy="${p.y}" r="3"></circle>`).join('');
+
+      svg.innerHTML = `${gridLines}<path class="stats-chart-line" d="${linePath}"></path>${dots}${xLabels}`;
     }
 
     // ═══════════════════════════════════════════
@@ -2677,6 +2916,9 @@
       state.viewMonth = now.getMonth();
       const thisMonday = getWeekDates(now)[0];
       state.currentWeekStart = dateKey(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate());
+      state.statsYear = now.getFullYear();
+      state.statsMonth = now.getMonth();
+      state.statsHabitId = state.habits[0] ? state.habits[0].id : null;
 
       applyAccentTheme(state.settings.accentTheme);
       applyColorTheme(state.settings.colorTheme);
@@ -2686,6 +2928,7 @@
       renderGroupTabs();
       renderHabitTable();
       renderViewModeUI();
+      if (state.settings.viewMode === 'stats') renderStatsPanel();
       renderTodos();
       renderNotes();
       renderSidequest();
@@ -2705,18 +2948,50 @@
         renderHabitTable();
       });
 
-      // Monat/Woche-Umschalter
+      // Monat/Woche/Statistik-Umschalter
       document.querySelectorAll('#viewModeTabs button').forEach(btn => {
         btn.addEventListener('click', () => {
           if (btn.dataset.view === state.settings.viewMode) return;
           state.settings.viewMode = btn.dataset.view;
           saveState();
           renderViewModeUI();
-          renderHabitTable();
+          if (state.settings.viewMode === 'stats') {
+            renderStatsPanel();
+          } else {
+            renderHabitTable();
+          }
         });
       });
       document.getElementById('prevWeek').addEventListener('click', () => shiftCurrentWeek(-7));
       document.getElementById('nextWeek').addEventListener('click', () => shiftCurrentWeek(7));
+
+      // Statistik: Monat/Jahr-Umschalter
+      document.querySelectorAll('#statsModeTabs button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.dataset.statsmode === state.settings.statsMode) return;
+          state.settings.statsMode = btn.dataset.statsmode;
+          saveState();
+          renderStatsPanel();
+        });
+      });
+      document.getElementById('prevStatsMonth').addEventListener('click', () => {
+        state.statsMonth--;
+        if (state.statsMonth < 0) { state.statsMonth = 11; state.statsYear--; }
+        renderStatsMonthView();
+      });
+      document.getElementById('nextStatsMonth').addEventListener('click', () => {
+        state.statsMonth++;
+        if (state.statsMonth > 11) { state.statsMonth = 0; state.statsYear++; }
+        renderStatsMonthView();
+      });
+      document.getElementById('prevStatsYear').addEventListener('click', () => {
+        state.statsYear--;
+        renderStatsYearView();
+      });
+      document.getElementById('nextStatsYear').addEventListener('click', () => {
+        state.statsYear++;
+        renderStatsYearView();
+      });
 
       // Year view
       document.getElementById('btnYear').addEventListener('click', showYearView);
