@@ -1730,6 +1730,55 @@
       return new Date(y, m + 1, 0).getDate();
     }
 
+    // Liest die erledigten Tage einer Gewohnheit aus state.checks (derselbe Datenbestand,
+    // aus dem auch Monats- und Jahresansicht ihre Haken holen) und berechnet daraus:
+    // - currentStreak: aktuelle Serie aufeinanderfolgender erledigter Tage, bis heute
+    //   (oder bis gestern, falls heute noch nicht erledigt wurde – ein noch offener
+    //   heutiger Tag reißt die Serie also noch nicht ab)
+    // - bestStreak: die längste je erreichte Serie in der gesamten Historie
+    // Die Serie bricht ab, sobald ein Tag dazwischen ausgelassen wurde.
+    function calculateStreak(habitId) {
+      const suffix = '_' + habitId;
+      const doneDates = Object.keys(state.checks)
+        .filter(k => state.checks[k] && k.endsWith(suffix))
+        .map(k => k.slice(0, k.length - suffix.length))
+        .sort();
+
+      if (doneDates.length === 0) {
+        return { currentStreak: 0, bestStreak: 0 };
+      }
+
+      const doneSet = new Set(doneDates);
+
+      let bestStreak = 0;
+      let run = 0;
+      let prevDate = null;
+      doneDates.forEach(ds => {
+        const d = new Date(ds + 'T00:00:00');
+        if (prevDate && Math.round((d - prevDate) / 86400000) === 1) {
+          run += 1;
+        } else {
+          run = 1;
+        }
+        if (run > bestStreak) bestStreak = run;
+        prevDate = d;
+      });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const cursor = new Date(today);
+      if (!doneSet.has(dateKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()))) {
+        cursor.setDate(cursor.getDate() - 1);
+      }
+      let currentStreak = 0;
+      while (doneSet.has(dateKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()))) {
+        currentStreak++;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
+      return { currentStreak, bestStreak };
+    }
+
     function uid() {
       return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     }
