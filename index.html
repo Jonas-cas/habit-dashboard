@@ -338,6 +338,21 @@
       max-width: 52px;
       margin: 0 auto;
     }
+    .habit-table thead th .habit-streak {
+      display: block;
+      min-height: 1.2em;
+      margin-top: 2px;
+      font-size: 0.62rem;
+      font-weight: 600;
+      line-height: 1.25;
+      color: var(--text-muted);
+      white-space: normal;
+      word-break: break-word;
+    }
+    .habit-table thead th .habit-streak.has-streak {
+      color: var(--accent);
+      cursor: default;
+    }
 
     .habit-table .day-cell {
       text-align: left;
@@ -1821,6 +1836,28 @@
       });
     }
 
+    // Baut das Streak-Badge (🔥 currentStreak, Rekord als Tooltip) für eine einzelne Gewohnheit.
+    // currentStreak === 0 -> bewusst unauffällig: kein Text, nur reservierte Höhe (kein Layout-Sprung).
+    function habitStreakBadgeHtml(habitId) {
+      const { currentStreak, bestStreak } = calculateStreak(habitId);
+      if (currentStreak > 0) {
+        const title = bestStreak > 0 ? ` title="Rekord: ${bestStreak} Tage"` : '';
+        return `<span class="habit-streak has-streak"${title}>🔥 ${currentStreak} Tage in Folge</span>`;
+      }
+      return `<span class="habit-streak"></span>`;
+    }
+
+    // Aktualisiert NUR das Streak-Badge einer einzelnen Gewohnheit im bereits gerenderten
+    // Tabellenkopf, ohne die komplette Tabelle neu zu bauen bzw. calculateStreak() für alle
+    // anderen Gewohnheiten erneut aufzurufen – wichtig, damit ein einzelner Tages-Klick nicht
+    // die gesamte Check-Historie aller Gewohnheiten neu durchläuft.
+    function updateHabitStreakBadge(habitId) {
+      const th = document.querySelector(`#habitHead th[data-habit="${habitId}"]`);
+      if (!th) return;
+      const badge = th.querySelector('.habit-streak');
+      if (badge) badge.outerHTML = habitStreakBadgeHtml(habitId);
+    }
+
     function renderHabitTable() {
       const y = state.viewYear;
       const m = state.viewMonth;
@@ -1838,7 +1875,7 @@
 
       head.innerHTML = `<tr>
         <th style="text-align:left;padding-left:8px;min-width:42px;">Tag</th>
-        ${habits.map(h => `<th title="${escapeHtml(h.name)}"><span class="habit-emoji">${h.emoji}</span><span class="habit-name">${escapeHtml(h.name)}</span></th>`).join('')}
+        ${habits.map(h => `<th data-habit="${h.id}" title="${escapeHtml(h.name)}"><span class="habit-emoji">${h.emoji}</span><span class="habit-name">${escapeHtml(h.name)}</span>${habitStreakBadgeHtml(h.id)}</th>`).join('')}
       </tr>`;
 
       const days = daysInMonth(y, m);
@@ -1855,7 +1892,7 @@
           ${habits.map(h => {
             const ck = key + '_' + h.id;
             const done = !!state.checks[ck];
-            return `<td><button class="check-btn ${done ? 'done' : ''}" data-key="${ck}" aria-label="${escapeHtml(h.name)} Tag ${d}"></button></td>`;
+            return `<td><button class="check-btn ${done ? 'done' : ''}" data-key="${ck}" data-habit="${h.id}" aria-label="${escapeHtml(h.name)} Tag ${d}"></button></td>`;
           }).join('')}
         </tr>`;
       }
@@ -1872,6 +1909,8 @@
             btn.classList.add('done');
           }
           saveState();
+          // Nur das Streak-Badge dieser einen Gewohnheit neu berechnen, nicht die ganze Tabelle.
+          updateHabitStreakBadge(btn.dataset.habit);
         });
       });
     }
