@@ -1159,6 +1159,10 @@
         <summary>🎨 Darstellung</summary>
         <div class="settings-section-body">
           <div class="form-group">
+            <label>Design</label>
+            <div class="color-swatches" id="designSwatches"></div>
+          </div>
+          <div class="form-group">
             <label>Akzentfarbe</label>
             <div class="color-swatches" id="colorSwatches"></div>
           </div>
@@ -1822,6 +1826,23 @@
       document.body.classList.toggle('no-animations', !state.settings.animations);
     }
 
+    function renderDesignSwatches() {
+      const el = document.getElementById('designSwatches');
+      el.innerHTML = Object.keys(COLOR_THEMES).map(key => {
+        const t = COLOR_THEMES[key];
+        const selected = state.settings.colorTheme === key ? 'selected' : '';
+        return `<button type="button" class="color-swatch ${selected}" data-theme="${key}" title="${t.label}" style="background:${t['bg-elevated']}"></button>`;
+      }).join('');
+      el.querySelectorAll('.color-swatch').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.settings.colorTheme = btn.dataset.theme;
+          applyColorTheme(state.settings.colorTheme);
+          saveState();
+          renderDesignSwatches();
+        });
+      });
+    }
+
     function renderColorSwatches() {
       const el = document.getElementById('colorSwatches');
       el.innerHTML = Object.keys(ACCENT_THEMES).map(key => {
@@ -2055,6 +2076,7 @@
 
     function openSettings() {
       renderSettingsLists();
+      renderDesignSwatches();
       renderColorSwatches();
       document.getElementById('toggleAnimations').checked = state.settings.animations;
       openModal('modalSettings');
