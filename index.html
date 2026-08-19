@@ -1246,6 +1246,70 @@
       teal:   { label: 'Türkis', accent: '#5ec9c0', dim: '#45a89f' },
     };
 
+    // Komplette Farbschema-Varianten (Hintergrund, Text, Status), umschaltbar in den Einstellungen.
+    const COLOR_THEMES = {
+      gruen: {
+        label: 'Grün', themeColor: '#1a1f19',
+        'bg-deep': '#1a1f19', 'bg-base': '#20281F', 'bg-card': '#2B332A', 'bg-card-hover': '#343d33', 'bg-elevated': '#3a4439',
+        'text-primary': '#e8ebe6', 'text-secondary': '#a8b0a5', 'text-muted': '#6b7568',
+        success: '#7cb87a', danger: '#c97a6a',
+      },
+      grau: {
+        label: 'Grau', themeColor: '#121212',
+        'bg-deep': '#121212', 'bg-base': '#1c1c1c', 'bg-card': '#262626', 'bg-card-hover': '#303030', 'bg-elevated': '#3a3a3a',
+        'text-primary': '#f2f2f0', 'text-secondary': '#a8a8a4', 'text-muted': '#707070',
+        success: '#c2c2be', danger: '#8c8c88',
+      },
+      blau: {
+        label: 'Blau', themeColor: '#10151f',
+        'bg-deep': '#10151f', 'bg-base': '#161d2b', 'bg-card': '#1f2937', 'bg-card-hover': '#263244', 'bg-elevated': '#2e3c52',
+        'text-primary': '#e6ebf5', 'text-secondary': '#a3b0c2', 'text-muted': '#64707f',
+        success: '#7cc9a0', danger: '#c9756a',
+      },
+      lila: {
+        label: 'Lila', themeColor: '#16121f',
+        'bg-deep': '#16121f', 'bg-base': '#1e1829', 'bg-card': '#291f38', 'bg-card-hover': '#332745', 'bg-elevated': '#3d2f54',
+        'text-primary': '#ede8f5', 'text-secondary': '#b3a8c2', 'text-muted': '#7a6f8c',
+        success: '#7cc576', danger: '#c97a6a',
+      },
+      sepia: {
+        label: 'Kaffee', themeColor: '#1c1712',
+        'bg-deep': '#1c1712', 'bg-base': '#241d16', 'bg-card': '#2f2620', 'bg-card-hover': '#3a2f27', 'bg-elevated': '#453930',
+        'text-primary': '#f2ebe2', 'text-secondary': '#b8ab9c', 'text-muted': '#7a6f62',
+        success: '#8fae6f', danger: '#c17a5a',
+      },
+      bordeaux: {
+        label: 'Bordeaux', themeColor: '#1a1013',
+        'bg-deep': '#1a1013', 'bg-base': '#22151a', 'bg-card': '#2d1b22', 'bg-card-hover': '#38232b', 'bg-elevated': '#432b34',
+        'text-primary': '#f2e6e9', 'text-secondary': '#b89ba3', 'text-muted': '#7a6169',
+        success: '#7cb87a', danger: '#d1697a',
+      },
+      tuerkis: {
+        label: 'Türkis', themeColor: '#0f1a1a',
+        'bg-deep': '#0f1a1a', 'bg-base': '#142323', 'bg-card': '#1c2f2f', 'bg-card-hover': '#243c3c', 'bg-elevated': '#2c4a4a',
+        'text-primary': '#e6f2f0', 'text-secondary': '#9fc0bc', 'text-muted': '#5f7d79',
+        success: '#7cc9a0', danger: '#d18a6a',
+      },
+      sunset: {
+        label: 'Sunset', themeColor: '#1c140f',
+        'bg-deep': '#1c140f', 'bg-base': '#251a13', 'bg-card': '#30231a', 'bg-card-hover': '#3b2c20', 'bg-elevated': '#473527',
+        'text-primary': '#f5ece2', 'text-secondary': '#c2a98f', 'text-muted': '#8c7256',
+        success: '#8fae6f', danger: '#d1694a',
+      },
+      rose: {
+        label: 'Rosé', themeColor: '#1c1216',
+        'bg-deep': '#1c1216', 'bg-base': '#251720', 'bg-card': '#301d29', 'bg-card-hover': '#3b2432', 'bg-elevated': '#472c3d',
+        'text-primary': '#f5e6ee', 'text-secondary': '#c2a0b3', 'text-muted': '#8c6b7a',
+        success: '#7cc576', danger: '#d1698a',
+      },
+      steel: {
+        label: 'Steel', themeColor: '#12161c',
+        'bg-deep': '#12161c', 'bg-base': '#182029', 'bg-card': '#202b36', 'bg-card-hover': '#283544', 'bg-elevated': '#304052',
+        'text-primary': '#e8eef2', 'text-secondary': '#a0aebb', 'text-muted': '#647180',
+        success: '#7ca8c9', danger: '#c98a7c',
+      },
+    };
+
     // Sidequests: bewusst fordernd, keine Trivial-Aufgaben.
     const SIDEQUESTS = {
       einfach: [
