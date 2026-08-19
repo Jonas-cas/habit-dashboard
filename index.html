@@ -1884,6 +1884,48 @@
       return { currentStreak, bestStreak };
     }
 
+    // Erfüllungsquote einer Gewohnheit für einen einzelnen Monat, aus demselben
+    // state.checks-Datenbestand wie calculateStreak(). `month` ist 0-basiert (0 = Januar).
+    // gesamtTage zählt: alle Tage des Monats bis einschließlich heute (aktueller Monat),
+    // alle Tage des Monats (vergangener Monat), oder 0 (zukünftiger Monat).
+    function getMonthStats(habitId, year, month) {
+      const today = new Date();
+      const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+      const isFutureMonth = year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth());
+
+      const gesamtTage = isFutureMonth ? 0 : (isCurrentMonth ? today.getDate() : daysInMonth(year, month));
+
+      let erledigt = 0;
+      for (let d = 1; d <= gesamtTage; d++) {
+        if (state.checks[dateKey(year, month, d) + '_' + habitId]) erledigt++;
+      }
+
+      const quote = gesamtTage > 0 ? erledigt / gesamtTage : 0;
+      return { erledigt, gesamtTage, quote };
+    }
+
+    // Erfüllungsquote einer Gewohnheit für alle 12 Monate eines Jahres, aus getMonthStats()
+    // zusammengesetzt. `monat` ist 0-basiert (0 = Januar, ... 11 = Dezember), analog zu
+    // state.viewMonth/MONTH_NAMES/MONTH_SHORT im restlichen Code.
+    function getYearStats(habitId, year) {
+      const months = [];
+      for (let m = 0; m < 12; m++) {
+        months.push({ monat: m, quote: getMonthStats(habitId, year, m).quote });
+      }
+      return months;
+    }
+
+    // Erfüllungsquote aller vorhandenen Gewohnheiten für einen Monat, absteigend nach Quote
+    // sortiert (höchste zuerst), inkl. Name und Emoji für die spätere Anzeige.
+    function getAllHabitsMonthStats(year, month) {
+      return state.habits
+        .map(h => {
+          const stats = getMonthStats(h.id, year, month);
+          return { habitId: h.id, name: h.name, emoji: h.emoji, ...stats };
+        })
+        .sort((a, b) => b.quote - a.quote);
+    }
+
     function uid() {
       return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     }
