@@ -1159,6 +1159,10 @@
         <summary>🎨 Darstellung</summary>
         <div class="settings-section-body">
           <div class="form-group">
+            <label>Design</label>
+            <div class="color-swatches" id="designSwatches"></div>
+          </div>
+          <div class="form-group">
             <label>Akzentfarbe</label>
             <div class="color-swatches" id="colorSwatches"></div>
           </div>
@@ -1246,61 +1250,458 @@
       teal:   { label: 'Türkis', accent: '#5ec9c0', dim: '#45a89f' },
     };
 
+    // Komplette Farbschema-Varianten (Hintergrund, Text, Status), umschaltbar in den Einstellungen.
+    const COLOR_THEMES = {
+      gruen: {
+        label: 'Grün', themeColor: '#1a1f19',
+        'bg-deep': '#1a1f19', 'bg-base': '#20281F', 'bg-card': '#2B332A', 'bg-card-hover': '#343d33', 'bg-elevated': '#3a4439',
+        'text-primary': '#e8ebe6', 'text-secondary': '#a8b0a5', 'text-muted': '#6b7568',
+        success: '#7cb87a', danger: '#c97a6a',
+      },
+      grau: {
+        label: 'Grau', themeColor: '#121212',
+        'bg-deep': '#121212', 'bg-base': '#1c1c1c', 'bg-card': '#262626', 'bg-card-hover': '#303030', 'bg-elevated': '#3a3a3a',
+        'text-primary': '#f2f2f0', 'text-secondary': '#a8a8a4', 'text-muted': '#707070',
+        success: '#c2c2be', danger: '#8c8c88',
+      },
+      blau: {
+        label: 'Blau', themeColor: '#10151f',
+        'bg-deep': '#10151f', 'bg-base': '#161d2b', 'bg-card': '#1f2937', 'bg-card-hover': '#263244', 'bg-elevated': '#2e3c52',
+        'text-primary': '#e6ebf5', 'text-secondary': '#a3b0c2', 'text-muted': '#64707f',
+        success: '#7cc9a0', danger: '#c9756a',
+      },
+      lila: {
+        label: 'Lila', themeColor: '#16121f',
+        'bg-deep': '#16121f', 'bg-base': '#1e1829', 'bg-card': '#291f38', 'bg-card-hover': '#332745', 'bg-elevated': '#3d2f54',
+        'text-primary': '#ede8f5', 'text-secondary': '#b3a8c2', 'text-muted': '#7a6f8c',
+        success: '#7cc576', danger: '#c97a6a',
+      },
+      sepia: {
+        label: 'Kaffee', themeColor: '#1c1712',
+        'bg-deep': '#1c1712', 'bg-base': '#241d16', 'bg-card': '#2f2620', 'bg-card-hover': '#3a2f27', 'bg-elevated': '#453930',
+        'text-primary': '#f2ebe2', 'text-secondary': '#b8ab9c', 'text-muted': '#7a6f62',
+        success: '#8fae6f', danger: '#c17a5a',
+      },
+      bordeaux: {
+        label: 'Bordeaux', themeColor: '#1a1013',
+        'bg-deep': '#1a1013', 'bg-base': '#22151a', 'bg-card': '#2d1b22', 'bg-card-hover': '#38232b', 'bg-elevated': '#432b34',
+        'text-primary': '#f2e6e9', 'text-secondary': '#b89ba3', 'text-muted': '#7a6169',
+        success: '#7cb87a', danger: '#d1697a',
+      },
+      tuerkis: {
+        label: 'Türkis', themeColor: '#0f1a1a',
+        'bg-deep': '#0f1a1a', 'bg-base': '#142323', 'bg-card': '#1c2f2f', 'bg-card-hover': '#243c3c', 'bg-elevated': '#2c4a4a',
+        'text-primary': '#e6f2f0', 'text-secondary': '#9fc0bc', 'text-muted': '#5f7d79',
+        success: '#7cc9a0', danger: '#d18a6a',
+      },
+      sunset: {
+        label: 'Sunset', themeColor: '#1c140f',
+        'bg-deep': '#1c140f', 'bg-base': '#251a13', 'bg-card': '#30231a', 'bg-card-hover': '#3b2c20', 'bg-elevated': '#473527',
+        'text-primary': '#f5ece2', 'text-secondary': '#c2a98f', 'text-muted': '#8c7256',
+        success: '#8fae6f', danger: '#d1694a',
+      },
+      rose: {
+        label: 'Rosé', themeColor: '#1c1216',
+        'bg-deep': '#1c1216', 'bg-base': '#251720', 'bg-card': '#301d29', 'bg-card-hover': '#3b2432', 'bg-elevated': '#472c3d',
+        'text-primary': '#f5e6ee', 'text-secondary': '#c2a0b3', 'text-muted': '#8c6b7a',
+        success: '#7cc576', danger: '#d1698a',
+      },
+      steel: {
+        label: 'Steel', themeColor: '#12161c',
+        'bg-deep': '#12161c', 'bg-base': '#182029', 'bg-card': '#202b36', 'bg-card-hover': '#283544', 'bg-elevated': '#304052',
+        'text-primary': '#e8eef2', 'text-secondary': '#a0aebb', 'text-muted': '#647180',
+        success: '#7ca8c9', danger: '#c98a7c',
+      },
+    };
+
     // Sidequests: bewusst fordernd, keine Trivial-Aufgaben.
-    const SIDEQUESTS = {
+    //
+    // Aufbau: pro Schwierigkeit eine Liste von "Baugruppen". Jede Baugruppe hat
+    // einen festen Satzrahmen (`template`) mit einer oder zwei Lücken (`{platzhalter}`)
+    // und für JEDE Lücke eine eigene, nur zu dieser Baugruppe gehörende Werte-Liste
+    // (`values`). Es gibt absolut keinen globalen Werte-Topf, aus dem sich mehrere
+    // Templates bedienen könnten – jede Werte-Liste ist fest an genau eine Lücke in
+    // genau einer Baugruppe gebunden. Dadurch sind Kombinationen wie "Trink 50
+    // Kniebeugen Wasser" strukturell unmöglich, weil "50" nur aus der Kniebeugen-Liste
+    // ihrer eigenen Baugruppe kommen kann, nicht aus der Wasser-Baugruppe.
+    //
+    // Wo eine Zahl grammatikalisch heikel wäre (z. B. "1 Stunde" vs. "2 Stunden"),
+    // steht in der Werte-Liste direkt die fertig gebeugte Phrase (z. B. 'eine Stunde',
+    // '2 Stunden') statt einer nackten Zahl – so bleibt jede erzeugte Kombination
+    // grammatikalisch korrekt.
+    const SIDEQUEST_BLOCKS = {
       einfach: [
-        'Mach 5 Minuten Plank – in Summe, mit Pausen wenn nötig.',
-        'Lauf oder geh 20 Minuten am Stück zügig, ohne Handy.',
-        'Räume einen ganzen Raum in 10 Minuten komplett auf – stell dir einen Timer.',
-        'Schreib eine volle Seite Tagebuch, ohne abzusetzen.',
-        'Mach 50 Kniebeugen, in Sätzen wenn nötig.',
-        'Trink heute 2 Liter Wasser, verteilt über den Tag – tracke es bewusst.',
-        'Verzichte 3 Stunden am Stück komplett auf Social Media.',
-        'Räum deinen Schreibtisch oder Arbeitsplatz komplett leer und sauber.',
-        'Koch dir eine Mahlzeit vollständig selbst statt etwas Fertiges zu nehmen.',
-        'Mach 15 Minuten Dehnübungen für den ganzen Körper.',
-        'Schreib 3 Dinge auf, die du diese Woche wirklich erledigen willst – mit Termin.',
-        'Geh 3 Kilometer zu Fuß, egal wohin.',
-        'Miste 10 Kleidungsstücke aus, die du nicht mehr brauchst.',
-        'Trink heute keinen Kaffee, Energydrink oder Softdrink.',
-        'Lies 20 Minuten am Stück in einem Buch, ohne Unterbrechung.',
+        {
+          template: 'Mach {x} Minuten Plank – {stil}.',
+          values: {
+            x: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            stil: ['in Summe, mit Pausen wenn nötig', 'am Stück ohne Unterbrechung', 'direkt nach dem Aufstehen', 'kurz vor dem Schlafengehen', 'mit ruhiger Musik im Hintergrund', 'draußen an der frischen Luft', 'ohne dabei aufs Handy zu schauen', 'in maximal zwei Sätzen'],
+          },
+        },
+        {
+          template: 'Lauf oder geh {x} Minuten am Stück zügig, {bedingung}.',
+          values: {
+            x: [15, 18, 20, 22, 25, 28, 30, 35],
+            bedingung: ['ohne Handy', 'ohne Kopfhörer', 'in einer neuen Umgebung', 'bei jedem Wetter', 'ohne stehen zu bleiben', 'mit bewusster, tiefer Atmung', 'so schnell wie möglich'],
+          },
+        },
+        {
+          template: 'Räume {ort} in {x} Minuten komplett auf – {zusatz}.',
+          values: {
+            ort: ['dein Zimmer', 'deinen Schreibtisch', 'die Küche', 'dein Bad', 'den Flur', 'dein Wohnzimmer', 'deinen Kleiderschrank', 'dein Auto', 'deine Schuhablage', 'deinen Nachttisch'],
+            x: [8, 10, 12, 15, 18, 20],
+            zusatz: ['stell dir einen Timer', 'ohne Pause dazwischen', 'und wirf dabei alles weg, was du nicht mehr brauchst', 'und sortiere dabei bewusst aus', 'mit Musik, die dich pusht', 'ganz ohne Handy in der Hand', 'im Eiltempo'],
+          },
+        },
+        {
+          template: 'Schreib {x} Minuten am Stück Tagebuch, {bedingung}.',
+          values: {
+            x: [5, 8, 10, 12, 15, 18],
+            bedingung: ['ohne den Stift abzusetzen', 'ohne über Rechtschreibung nachzudenken', 'ganz ehrlich und ohne Filter', 'nur über positive Momente', 'über das, was dich gerade beschäftigt', 'ohne es hinterher noch mal zu lesen'],
+          },
+        },
+        {
+          template: 'Mach {x} Kniebeugen, {bedingung}.',
+          values: {
+            x: [30, 40, 50, 60, 70, 80, 90, 100],
+            bedingung: ['in Sätzen wenn nötig', 'nur mit Körpergewicht', 'so langsam und sauber wie möglich', 'direkt nach dem Aufwachen', 'am Ende deines Trainings', 'mit kurzen Pausen dazwischen'],
+          },
+        },
+        {
+          template: 'Trink heute {x} Liter Wasser, verteilt über den Tag – {bedingung}.',
+          values: {
+            x: [1.5, 2, 2.5, 3],
+            bedingung: ['ohne Softdrinks dazwischen', 'mit einer Wasserflasche griffbereit', 'bevor du etwas anderes trinkst', 'auch beim Sport', 'schon vor dem Frühstück beginnend'],
+          },
+        },
+        {
+          template: 'Verzichte {x} Stunden am Stück komplett auf Social Media – {bedingung}.',
+          values: {
+            x: [2, 3, 4, 5, 6],
+            bedingung: ['auch wenn dir langweilig wird', 'und leg das Handy dafür weit weg', 'egal was passiert', 'auch abends vor dem Schlafen', 'und nutze die Zeit stattdessen bewusst'],
+          },
+        },
+        {
+          template: 'Räum {bereich} komplett leer und sauber – {zusatz}.',
+          values: {
+            bereich: ['deinen Schreibtisch', 'deinen Arbeitsplatz', 'dein Nachttischchen', 'deine Kommode', 'dein Handschuhfach', 'deinen Rucksack', 'deine Handtasche', 'dein Portemonnaie', 'deine Küchenschublade'],
+            zusatz: ['wirf dabei aus, was du nicht mehr brauchst', 'wisch am Ende feucht durch', 'räume alles an einen festen Platz', 'mach danach ein Vorher-Nachher-Foto', 'nutze dafür maximal 15 Minuten', 'sortiere dabei nach Kategorien'],
+          },
+        },
+        {
+          template: 'Koch dir {mahlzeit} vollständig selbst, statt etwas Fertiges zu nehmen – {zusatz}.',
+          values: {
+            mahlzeit: ['eine Mahlzeit', 'dein Frühstück', 'dein Mittagessen', 'dein Abendessen', 'einen Snack für später', 'eine Suppe', 'einen Salat'],
+            zusatz: ['und iss bewusst ohne Bildschirm dabei', 'mit möglichst viel Gemüse', 'und probier dabei eine neue Zutat aus', 'und koch gleich eine Portion mehr für morgen', 'ganz ohne Fertigsoße oder Tütenwürze'],
+          },
+        },
+        {
+          template: 'Mach {x} Minuten Dehnübungen für {bereich}.',
+          values: {
+            x: [10, 12, 15, 18, 20],
+            bereich: ['den ganzen Körper', 'Rücken und Nacken', 'Beine und Hüfte', 'Schultern und Arme', 'den unteren Rücken'],
+          },
+        },
+        {
+          template: 'Schreib {x} Dinge auf, die du diese Woche wirklich erledigen willst – {zusatz}.',
+          values: {
+            x: [2, 3, 4, 5, 6],
+            zusatz: ['mit festem Termin im Kalender', 'sortiert nach Wichtigkeit', 'und häng den Zettel sichtbar auf', 'und erledige das erste noch heute', 'realistisch und konkret formuliert'],
+          },
+        },
+        {
+          template: 'Geh {x} Kilometer zu Fuß, {bedingung}.',
+          values: {
+            x: [2, 3, 4, 5, 6, 7],
+            bedingung: ['egal wohin', 'ohne festes Ziel', 'in einer neuen Gegend', 'bei jedem Wetter', 'ohne Handy in der Hand'],
+          },
+        },
+        {
+          template: 'Miste {x} Kleidungsstücke aus, die du nicht mehr brauchst – {zusatz}.',
+          values: {
+            x: [5, 8, 10, 12, 15, 18],
+            zusatz: ['und bring sie direkt weg', 'und verkaufe oder verschenke sie', 'noch heute, nicht irgendwann', 'sortiert nach Sommer- und Winterkleidung', 'aus einem einzigen Schrankfach'],
+          },
+        },
+        {
+          template: 'Verzichte heute komplett auf {getraenk}.',
+          values: { getraenk: ['Kaffee', 'Energydrinks', 'Softdrinks', 'Alkohol', 'zugesetzten Zucker in Getränken', 'Fruchtsäfte', 'Limonade'] },
+        },
+        {
+          template: 'Lies {x} Minuten am Stück in einem Buch, ohne Unterbrechung – {zusatz}.',
+          values: {
+            x: [15, 20, 25, 30, 35],
+            zusatz: ['ganz ohne Handy in Reichweite', 'in einem Buch, das du schon lange anfangen wolltest', 'an einem ruhigen Ort ohne Ablenkung', 'mit einer Tasse Tee dazu', 'und mach dir danach 3 Notizen zum Gelesenen'],
+          },
+        },
       ],
       mittel: [
-        '30 Minuten Sport am Stück (Cardio oder Kraft), ohne Pause länger als 1 Minute.',
-        'Räume und organisiere einen ganzen Schrank oder eine Schublade komplett neu.',
-        'Schreib die E-Mail oder Nachricht, die du schon lange vor dir herschiebst – und schick sie ab.',
-        '1 Stunde volle Konzentration an einer wichtigen Aufgabe, Handy in einem anderen Raum.',
-        'Lauf 5 km oder radle 15 km am Stück.',
-        'Miste 20 Kleidungsstücke aus, die du nicht mehr brauchst, und bring sie weg.',
-        'Koche eine komplette Mahlzeit für morgen vor (Meal Prep).',
-        'Erledige die unangenehmste Aufgabe auf deiner To-Do-Liste zuerst – heute, nicht morgen.',
-        '45 Minuten fokussiertes Lernen oder Lesen zu einem Thema, das dich weiterbringt, ohne Ablenkung.',
-        'Ruf jemanden an (kein Text!), mit dem du lange nicht gesprochen hast.',
-        'Putz eine ganze Wohnung/ein ganzes Zimmer gründlich – Boden, Oberflächen, alles.',
-        '60 Minuten zu Fuß gehen, telefonfrei, ohne Musik – nur mit dir selbst.',
-        'Plane deine nächsten 4 Wochen konkret in einem Kalender – Termine und Ziele.',
-        'Verzichte einen ganzen Tag auf Zucker und verarbeitete Snacks.',
-        'Mach ein 30-minütiges Workout, das du dir vorher noch nie zugetraut hast.',
+        {
+          template: '{x} Minuten Sport am Stück (Cardio oder Kraft), ohne Pause länger als 1 Minute – {zusatz}.',
+          values: {
+            x: [25, 30, 35, 40, 45, 50, 55, 60],
+            zusatz: ['egal ob drinnen oder draußen', 'mit einem Workout, das dich wirklich fordert', 'inklusive kurzem Aufwärmen', 'ohne dir dabei Pausen zu erlauben', 'mit Musik, die dich pusht', 'als Mix aus Cardio und Kraft'],
+          },
+        },
+        {
+          template: 'Räume und organisiere {bereich} komplett neu – {zusatz}.',
+          values: {
+            bereich: ['einen ganzen Schrank', 'eine Schublade', 'dein Bücherregal', 'deine Speisekammer', 'deinen Kleiderschrank', 'deine Werkzeugkiste', 'dein Büroregal', 'deine Vorratskammer', 'dein Medizinschränkchen'],
+            zusatz: ['und wirf aus, was du nicht mehr brauchst', 'nach einem festen System', 'und beschrifte alles neu', 'in maximal einer Stunde', 'und mach danach ein Foto vom Ergebnis'],
+          },
+        },
+        {
+          template: 'Schreib {aufgabe}, die du schon lange vor dir herschiebst – {zusatz}.',
+          values: {
+            aufgabe: ['die E-Mail', 'die Nachricht', 'die Bewerbung', 'die Rückmeldung', 'die Kündigung', 'die Anfrage', 'die Beschwerde', 'die Einladung', 'die Terminanfrage', 'die Entschuldigung'],
+            zusatz: ['und schick sie noch heute ab', 'ohne sie noch einmal zu überarbeiten', 'auch wenn sie dir unangenehm ist', 'bevor du dein Handy in die Hand nimmst', 'egal wie du dich dabei fühlst'],
+          },
+        },
+        {
+          template: '{x} Fokus-Blöcke à 25 Minuten an einer wichtigen Aufgabe, Handy in einem anderen Raum – {zusatz}.',
+          values: {
+            x: [2, 3, 4, 5],
+            zusatz: ['mit kurzen Pausen dazwischen', 'an einem aufgeräumten Arbeitsplatz', 'ohne jede Ablenkung', 'ganz ohne Multitasking', 'mit einem klaren Ziel pro Block'],
+          },
+        },
+        {
+          template: 'Lauf {x} km am Stück – {bedingung}.',
+          values: {
+            x: [4, 5, 6, 7, 8, 9, 10, 12],
+            bedingung: ['egal in welchem Tempo', 'ohne Musik, nur mit deinen Gedanken', 'auf einer neuen Route', 'bei jedem Wetter', 'so gleichmäßig wie möglich'],
+          },
+        },
+        {
+          template: 'Radle {x} km am Stück – {bedingung}.',
+          values: {
+            x: [12, 15, 18, 20, 22, 25, 28, 30],
+            bedingung: ['egal in welchem Tempo', 'auf einer neuen Strecke', 'ohne Pause', 'auch bei etwas schlechterem Wetter', 'so zügig wie es geht'],
+          },
+        },
+        {
+          template: 'Miste {x} Kleidungsstücke aus, die du nicht mehr brauchst, und bring sie {ziel}.',
+          values: {
+            x: [15, 20, 25, 30, 35, 40],
+            ziel: ['direkt weg', 'zu einem Second-Hand-Laden', 'in eine Kleiderspende', 'noch heute zum Altkleider-Container', 'zu jemandem, der sie brauchen kann'],
+          },
+        },
+        {
+          template: 'Koche {x} komplette Mahlzeiten für die nächsten Tage vor (Meal Prep) – {zusatz}.',
+          values: {
+            x: [2, 3, 4, 5],
+            zusatz: ['mit viel Gemüse', 'und portioniere sie einzeln', 'ganz ohne Fertigprodukte', 'und beschrifte jede Portion mit Datum', 'für eine ganze Arbeitswoche'],
+          },
+        },
+        {
+          template: 'Erledige {aufgabe} auf deiner To-Do-Liste zuerst – {zusatz}.',
+          values: {
+            aufgabe: ['die unangenehmste Aufgabe', 'die am längsten aufgeschobene Aufgabe', 'die schwierigste Aufgabe', 'die Aufgabe, vor der du dich am meisten drückst', 'die größte Aufgabe', 'die Aufgabe mit der nächsten Frist', 'die Aufgabe, die dir am meisten Kopfschmerzen bereitet'],
+            zusatz: ['heute, nicht morgen', 'noch vor dem Mittagessen', 'ohne sie noch einmal aufzuschieben', 'auch wenn dir nicht danach ist', 'bevor du irgendetwas anderes tust'],
+          },
+        },
+        {
+          template: '{x} Minuten fokussiertes Lernen oder Lesen zu einem Thema, das dich weiterbringt, ohne Ablenkung – {zusatz}.',
+          values: {
+            x: [35, 40, 45, 50, 55, 60, 70],
+            zusatz: ['Handy komplett aus', 'mit Notizen zum Gelernten', 'an einem festen, ruhigen Ort', 'zu einem Thema, das dich beruflich weiterbringt', 'mit einer kurzen Zusammenfassung danach'],
+          },
+        },
+        {
+          template: 'Ruf {person} an (kein Text!) – {zusatz}.',
+          values: {
+            person: ['einen alten Freund', 'eine alte Freundin', 'ein Familienmitglied', 'eine entfernte Verwandte', 'einen alten Kumpel', 'eine ehemalige Kollegin', 'einen ehemaligen Kollegen', 'eine alte Schulfreundin', 'einen alten Schulfreund'],
+            zusatz: ['jemanden, mit dem du lange nicht gesprochen hast', 'und nimm dir wirklich Zeit für das Gespräch', 'einfach nur, um Hallo zu sagen', 'und frag aktiv nach, wie es der Person geht', 'ganz ohne besonderen Anlass'],
+          },
+        },
+        {
+          template: 'Putz {bereich} gründlich – {zusatz}.',
+          values: {
+            bereich: ['deine ganze Wohnung', 'dein ganzes Zimmer', 'das komplette Bad', 'die komplette Küche', 'dein Homeoffice', 'dein ganzes Auto von innen', 'den kompletten Flur'],
+            zusatz: ['Boden, Oberflächen, alles', 'inklusive aller Ecken, die du sonst auslässt', 'mit frischer Bettwäsche oder Handtüchern danach', 'in einem Rutsch, ohne Unterbrechung', 'und lüfte danach gründlich durch'],
+          },
+        },
+        {
+          template: '{x} Minuten zu Fuß gehen, telefonfrei, ohne Musik – {zusatz}.',
+          values: {
+            x: [45, 50, 60, 70, 75, 90, 100],
+            zusatz: ['nur mit dir selbst', 'und beobachte bewusst deine Umgebung', 'in einer Gegend, die du noch nicht kennst', 'und lass das Handy zu Hause', 'egal bei welchem Wetter'],
+          },
+        },
+        {
+          template: 'Plane deine nächsten {x} Wochen konkret in einem Kalender – {zusatz}.',
+          values: {
+            x: [2, 3, 4, 6, 8],
+            zusatz: ['Termine und Ziele', 'inklusive fester Sportzeiten', 'mit mindestens einem großen Ziel pro Woche', 'und trag alles direkt ein, nicht nur im Kopf', 'realistisch, aber ambitioniert'],
+          },
+        },
+        {
+          template: 'Verzichte {dauer} auf Zucker und verarbeitete Snacks – {zusatz}.',
+          values: {
+            dauer: ['einen ganzen Tag', '2 Tage', '3 Tage', '4 Tage', '5 Tage'],
+            zusatz: ['auch auf versteckten Zucker in Soßen und Getränken', 'komplett, ohne Ausnahme', 'und ersetze Süßes durch Obst', 'auch bei Kaffee oder Tee', 'auch am Wochenende'],
+          },
+        },
+        {
+          template: 'Mach ein {x}-minütiges Workout, das du dir vorher noch nie zugetraut hast – {zusatz}.',
+          values: {
+            x: [20, 25, 30, 35, 40, 45, 50],
+            zusatz: ['und filme oder tracke es diesmal', 'mit einer neuen Übung dabei', 'bis an deine Grenze', 'ganz ohne Pause zwischen den Übungen', 'als Herausforderung an dich selbst'],
+          },
+        },
       ],
       schwer: [
-        '45–60 Minuten intensives Workout (HIIT, Laufen, Krafttraining) ohne Abbruch.',
-        'Digitales Detox: 4 Stunden am Stück ohne Handy, Social Media oder Streaming.',
-        'Steh morgen 1 Stunde früher auf als sonst und nutze die Zeit produktiv.',
-        '10 km laufen oder 30 km Rad fahren am Stück.',
-        'Räume eine komplette Wohnung von Grund auf auf (mind. 1 Stunde Arbeit).',
-        'Kalte Dusche – volle 2 Minuten durchhalten, ohne warmes Wasser dazwischen.',
-        'Erledige 3 aufgeschobene, unangenehme Aufgaben an einem einzigen Tag.',
-        'Schreib einen vollständigen Plan für ein großes Ziel inkl. konkreter nächster Schritte (mind. 30 Minuten Arbeit daran).',
-        '100 Liegestütze über den Tag verteilt, in Sätzen.',
-        'Ein voller Tag ohne jegliche Süßigkeiten, Alkohol oder Fastfood.',
-        'Führe ein ehrliches, unangenehmes Gespräch, das du schon lange aufschiebst.',
-        '2 Stunden am Stück an einem großen Projekt arbeiten, ohne jede Unterbrechung.',
-        'Steh einen ganzen Tag lang nicht länger als 30 Minuten am Stück auf – Bewegung einbauen.',
-        'Melde dich für etwas an, das dich aus deiner Komfortzone holt (Kurs, Event, Herausforderung).',
+        {
+          template: '{x} Minuten intensives Workout (HIIT, Laufen, Krafttraining) ohne Abbruch – {zusatz}.',
+          values: {
+            x: [45, 50, 55, 60, 65, 70, 75, 80],
+            zusatz: ['bis du wirklich nicht mehr kannst', 'mit maximalem Einsatz', 'ganz ohne Pause zwischen den Übungen', 'als härtestes Training der Woche', 'mit einem Tempo, das dich fordert'],
+          },
+        },
+        {
+          template: 'Digitales Detox: {x} Stunden am Stück ohne Handy, Social Media oder Streaming – {zusatz}.',
+          values: {
+            x: [4, 5, 6, 7, 8, 10],
+            zusatz: ['egal was in der Zeit passiert', 'auch wenn dir langweilig wird', 'mit dem Handy komplett außer Reichweite', 'auch am Wochenende', 'ganz ohne Ausnahme für "nur kurz nachschauen"'],
+          },
+        },
+        {
+          template: 'Steh morgen {dauer} früher auf als sonst und nutze die Zeit produktiv – {zusatz}.',
+          values: {
+            dauer: ['eine Stunde', '90 Minuten', '2 Stunden'],
+            zusatz: ['für Sport oder Bewegung', 'für dein wichtigstes Projekt', 'ganz ohne Snooze-Taste', 'für ungestörte, fokussierte Arbeit', 'ohne danach müde auf die Couch zu fallen'],
+          },
+        },
+        {
+          template: '{x} km am Stück laufen – {zusatz}.',
+          values: {
+            x: [8, 10, 12, 15, 18, 20],
+            zusatz: ['egal in welchem Tempo, Hauptsache durchgezogen', 'ohne Musik, nur mit deinen Gedanken', 'auf einer neuen, anspruchsvollen Strecke', 'auch wenn es unangenehm wird', 'mit einer persönlichen Bestzeit im Kopf'],
+          },
+        },
+        {
+          template: '{x} km am Stück Rad fahren – {zusatz}.',
+          values: {
+            x: [25, 30, 35, 40, 50, 60],
+            zusatz: ['egal bei welchem Wetter', 'auf einer neuen, anspruchsvollen Strecke', 'ohne lange Pausen', 'so zügig wie möglich', 'bis du wirklich erschöpft bist'],
+          },
+        },
+        {
+          template: 'Räume {bereich} von Grund auf auf (mind. {dauer} Arbeit).',
+          values: {
+            bereich: ['eine komplette Wohnung', 'ein komplettes Haus', 'die Garage', 'den Keller', 'den Dachboden', 'die gesamte Küche', 'die gesamte Werkstatt'],
+            dauer: ['1 Stunde', '2 Stunden', '3 Stunden', '4 Stunden'],
+          },
+        },
+        {
+          template: 'Kalte Dusche – volle {x} Minuten durchhalten, ohne warmes Wasser dazwischen – {zusatz}.',
+          values: {
+            x: [2, 3, 4, 5],
+            zusatz: ['egal wie kalt es ist', 'gleich morgens als Erstes', 'ohne dabei aufzugeben', 'mit bewusster, ruhiger Atmung', 'auch wenn dein Kopf dagegen schreit'],
+          },
+        },
+        {
+          template: 'Erledige {x} aufgeschobene, unangenehme Aufgaben an einem einzigen Tag – {zusatz}.',
+          values: {
+            x: [2, 3, 4, 5],
+            zusatz: ['egal wie unangenehm sie sind', 'ganz ohne sie noch länger aufzuschieben', 'bevor du dir irgendetwas anderes erlaubst', 'auch wenn du dafür extra Zeit einplanen musst', 'und hak jede davon sichtbar ab'],
+          },
+        },
+        {
+          template: 'Schreib einen vollständigen Plan für ein großes Ziel inkl. konkreter nächster Schritte (mind. {x} Minuten Arbeit daran) – {zusatz}.',
+          values: {
+            x: [30, 40, 45, 60, 75, 90],
+            zusatz: ['mit realistischem Zeitrahmen', 'inklusive möglicher Hindernisse und Lösungen', 'so konkret, dass du morgen direkt loslegen kannst', 'mit einem festen ersten Schritt für morgen', 'ganz ohne es auf später zu verschieben'],
+          },
+        },
+        {
+          template: '{x} Liegestütze über den Tag verteilt, in Sätzen – {zusatz}.',
+          values: {
+            x: [80, 100, 120, 150, 180, 200],
+            zusatz: ['so sauber wie möglich ausgeführt', 'egal wie klein die Sätze sind', 'auch wenn die letzten richtig wehtun', 'verteilt über mindestens drei Sätze', 'ohne einen einzigen Tag auszulassen'],
+          },
+        },
+        {
+          template: '{dauer} ohne jegliche Süßigkeiten, Alkohol oder Fastfood – {zusatz}.',
+          values: {
+            dauer: ['Ein voller Tag', 'Zwei volle Tage', 'Drei volle Tage', 'Vier volle Tage'],
+            zusatz: ['ganz ohne Ausnahmen', 'auch bei Feiern oder Einladungen', 'auch wenn es dir schwerfällt', 'und ersetze es bewusst durch etwas Gesundes', 'egal was andere um dich herum essen'],
+          },
+        },
+        {
+          template: 'Führe {gespraech}, das du schon lange aufschiebst – {zusatz}.',
+          values: {
+            gespraech: ['ein ehrliches, unangenehmes Gespräch', 'ein längst überfälliges Gespräch', 'ein klärendes Gespräch', 'ein schwieriges Gespräch mit einer wichtigen Person', 'ein Gespräch, vor dem du dich am meisten drückst', 'ein Gespräch über ein Thema, das du sonst vermeidest'],
+            zusatz: ['auch wenn es unangenehm wird', 'ehrlich und ohne Ausreden', 'noch diese Woche', 'egal wie das Gespräch ausgeht', 'auch wenn du Angst vor der Reaktion hast'],
+          },
+        },
+        {
+          template: '{x} Stunden am Stück an einem großen Projekt arbeiten, ohne jede Unterbrechung – {zusatz}.',
+          values: {
+            x: [2, 3, 4, 5],
+            zusatz: ['Handy komplett aus', 'ohne eine einzige Pause', 'bis zu einem klar definierten Meilenstein', 'auch wenn es zäh wird', 'mit voller Konzentration von Anfang bis Ende'],
+          },
+        },
+        {
+          template: 'Steh einen ganzen Tag lang nicht länger als {x} Minuten am Stück – {zusatz}.',
+          values: {
+            x: [20, 25, 30, 35, 40],
+            zusatz: ['bau regelmäßig Bewegung ein', 'stell dir dafür einen Timer', 'auch im Homeoffice', 'egal wie unbequem das ist', 'und steh bei jedem Telefonat auf'],
+          },
+        },
+        {
+          template: 'Melde dich für {sache} an – {zusatz}.',
+          values: {
+            sache: ['einen Kurs', 'ein Event', 'eine Herausforderung', 'einen Wettbewerb', 'ein Ehrenamt', 'eine neue Sportart', 'ein Seminar', 'eine Challenge mit Fremden'],
+            zusatz: ['etwas, das dich aus deiner Komfortzone holt', 'noch heute, nicht irgendwann', 'auch wenn es dir Respekt einflößt', 'ganz ohne es dir noch einmal zu überlegen', 'egal ob dich jemand begleitet oder nicht'],
+          },
+        },
       ],
     };
     const DIFFICULTY_LABELS = { einfach: 'Einfach', mittel: 'Mittel', schwer: 'Schwer' };
     const DIFFICULTY_XP = { einfach: 10, mittel: 20, schwer: 35 };
+
+    // Laufzeit-Cache der bereits verwendeten Kombinationen pro Schwierigkeit (Set = schnelles has/add).
+    // Wird beim Laden aus state.sidequest.usedCombos befüllt und nach jeder Generierung dorthin zurückgeschrieben.
+    const usedComboSets = { einfach: new Set(), mittel: new Set(), schwer: new Set() };
+
+    // Würfelt eine zufällige Baugruppe + zufällige Werte NUR aus deren eigenen Listen
+    // und baut daraus den fertigen Text. Wiederholt eine bereits verwendete Kombination
+    // (comboKey), bis eine neue gefunden ist oder das Versuchslimit erreicht ist – dann
+    // ist die Schwierigkeit praktisch "durch" und das usedSet wird zurückgesetzt.
+    function generateSidequest(difficulty, usedSet) {
+      const blocks = SIDEQUEST_BLOCKS[difficulty] || SIDEQUEST_BLOCKS.mittel;
+      const maxAttempts = 300;
+
+      function rollOnce() {
+        const blockIndex = Math.floor(Math.random() * blocks.length);
+        const block = blocks[blockIndex];
+        const keys = Object.keys(block.values);
+        const chosenIdx = {};
+        keys.forEach(key => {
+          chosenIdx[key] = Math.floor(Math.random() * block.values[key].length);
+        });
+        const comboKey = blockIndex + '|' + keys.map(k => chosenIdx[k]).join(',');
+        let text = block.template;
+        keys.forEach(key => {
+          text = text.replace('{' + key + '}', block.values[key][chosenIdx[key]]);
+        });
+        return { comboKey, text };
+      }
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const rolled = rollOnce();
+        if (!usedSet.has(rolled.comboKey)) {
+          usedSet.add(rolled.comboKey);
+          return rolled.text;
+        }
+      }
+
+      // Nahezu alle Kombinationen dieser Schwierigkeit wurden schon verwendet -> von vorn beginnen.
+      usedSet.clear();
+      const rolled = rollOnce();
+      usedSet.add(rolled.comboKey);
+      return rolled.text;
+    }
 
     // Level/XP tuning: growth is intentionally steep so leveling up takes real effort.
     function xpForLevel(level) {
@@ -1348,9 +1749,11 @@
         difficulty: 'mittel',
         current: null,   // { text, difficulty }
         lastText: null,
+        usedCombos: { einfach: [], mittel: [], schwer: [] }, // pro Schwierigkeit bereits vergebene Baugruppen-Kombinationen
       },
       settings: {
         accentTheme: 'grau',
+        colorTheme: 'grau',
         animations: true,
         defaultDifficulty: 'mittel',
       },
@@ -1378,6 +1781,14 @@
           }
         }
       } catch (e) { console.warn('Load failed', e); }
+
+      // usedComboSets aus den persistierten Arrays befüllen (schnelles has/add zur Laufzeit).
+      // state.sidequest.usedCombos bleibt dabei unverändert, damit ein saveState() vor der
+      // ersten neuen Sidequest nichts überschreibt.
+      ['einfach', 'mittel', 'schwer'].forEach(diff => {
+        const saved = (state.sidequest.usedCombos && state.sidequest.usedCombos[diff]) || [];
+        usedComboSets[diff] = new Set(saved);
+      });
     }
 
     function saveState() {
@@ -1615,16 +2026,15 @@
     // SIDEQUEST + XP/LEVEL SYSTEM
     // ═══════════════════════════════════════════
     function pickSidequest(difficulty, avoidText) {
-      const pool = SIDEQUESTS[difficulty] || SIDEQUESTS.mittel;
-      let choice = pool[Math.floor(Math.random() * pool.length)];
-      if (pool.length > 1 && avoidText) {
-        let attempts = 0;
-        while (choice === avoidText && attempts < 10) {
-          choice = pool[Math.floor(Math.random() * pool.length)];
-          attempts++;
-        }
+      const usedSet = usedComboSets[difficulty] || (usedComboSets[difficulty] = new Set());
+      let text = generateSidequest(difficulty, usedSet);
+      // Direkte Wiederholung des zuletzt gezeigten Texts vermeiden (z. B. direkt nach einem Reset des Sets).
+      if (text === avoidText) {
+        text = generateSidequest(difficulty, usedSet);
       }
-      return choice;
+      // Laufzeit-Set zur Persistierung zurück in den State schreiben.
+      state.sidequest.usedCombos[difficulty] = Array.from(usedSet);
+      return text;
     }
 
     function ensureSidequest() {
@@ -1735,8 +2145,43 @@
       root.setProperty('--today-border', hexToRgba(t.accent, 0.45));
     }
 
+    function applyColorTheme(key) {
+      const t = COLOR_THEMES[key] || COLOR_THEMES.grau;
+      const root = document.documentElement.style;
+      root.setProperty('--bg-deep', t['bg-deep']);
+      root.setProperty('--bg-base', t['bg-base']);
+      root.setProperty('--bg-card', t['bg-card']);
+      root.setProperty('--bg-card-hover', t['bg-card-hover']);
+      root.setProperty('--bg-elevated', t['bg-elevated']);
+      root.setProperty('--text-primary', t['text-primary']);
+      root.setProperty('--text-secondary', t['text-secondary']);
+      root.setProperty('--text-muted', t['text-muted']);
+      root.setProperty('--success', t.success);
+      root.setProperty('--danger', t.danger);
+
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', t.themeColor);
+    }
+
     function applyAnimationsSetting() {
       document.body.classList.toggle('no-animations', !state.settings.animations);
+    }
+
+    function renderDesignSwatches() {
+      const el = document.getElementById('designSwatches');
+      el.innerHTML = Object.keys(COLOR_THEMES).map(key => {
+        const t = COLOR_THEMES[key];
+        const selected = state.settings.colorTheme === key ? 'selected' : '';
+        return `<button type="button" class="color-swatch ${selected}" data-theme="${key}" title="${t.label}" style="background:${t['bg-elevated']}"></button>`;
+      }).join('');
+      el.querySelectorAll('.color-swatch').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.settings.colorTheme = btn.dataset.theme;
+          applyColorTheme(state.settings.colorTheme);
+          saveState();
+          renderDesignSwatches();
+        });
+      });
     }
 
     function renderColorSwatches() {
@@ -1972,6 +2417,7 @@
 
     function openSettings() {
       renderSettingsLists();
+      renderDesignSwatches();
       renderColorSwatches();
       document.getElementById('toggleAnimations').checked = state.settings.animations;
       openModal('modalSettings');
@@ -2051,6 +2497,7 @@
       state.viewMonth = now.getMonth();
 
       applyAccentTheme(state.settings.accentTheme);
+      applyColorTheme(state.settings.colorTheme);
       applyAnimationsSetting();
       updateDateBadge();
 
