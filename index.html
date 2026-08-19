@@ -1415,6 +1415,7 @@
       },
       settings: {
         accentTheme: 'grau',
+        colorTheme: 'grau',
         animations: true,
         defaultDifficulty: 'mittel',
       },
@@ -1799,6 +1800,24 @@
       root.setProperty('--today-border', hexToRgba(t.accent, 0.45));
     }
 
+    function applyColorTheme(key) {
+      const t = COLOR_THEMES[key] || COLOR_THEMES.grau;
+      const root = document.documentElement.style;
+      root.setProperty('--bg-deep', t['bg-deep']);
+      root.setProperty('--bg-base', t['bg-base']);
+      root.setProperty('--bg-card', t['bg-card']);
+      root.setProperty('--bg-card-hover', t['bg-card-hover']);
+      root.setProperty('--bg-elevated', t['bg-elevated']);
+      root.setProperty('--text-primary', t['text-primary']);
+      root.setProperty('--text-secondary', t['text-secondary']);
+      root.setProperty('--text-muted', t['text-muted']);
+      root.setProperty('--success', t.success);
+      root.setProperty('--danger', t.danger);
+
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', t.themeColor);
+    }
+
     function applyAnimationsSetting() {
       document.body.classList.toggle('no-animations', !state.settings.animations);
     }
@@ -2115,6 +2134,7 @@
       state.viewMonth = now.getMonth();
 
       applyAccentTheme(state.settings.accentTheme);
+      applyColorTheme(state.settings.colorTheme);
       applyAnimationsSetting();
       updateDateBadge();
 
