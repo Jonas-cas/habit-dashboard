@@ -218,97 +218,6 @@
       justify-content: center;
     }
 
-    .xp-block {
-      border-top: 1px solid rgba(255,255,255,0.06);
-      padding-top: 12px;
-    }
-    .xp-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-      gap: 8px;
-    }
-    .xp-level-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-    }
-    .xp-badge {
-      font-size: 1.3rem;
-      flex-shrink: 0;
-    }
-    .xp-level {
-      font-size: 0.85rem;
-      font-weight: 650;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .xp-bar-track {
-      height: 10px;
-      background: var(--bg-base);
-      border-radius: 20px;
-      overflow: hidden;
-    }
-    .xp-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, var(--accent-dim), var(--accent));
-      border-radius: 20px;
-      transition: width 0.5s ease;
-    }
-    .xp-numbers {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      margin-top: 6px;
-      text-align: right;
-    }
-
-    /* ─── Level-up toast ─── */
-    .levelup-toast {
-      position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 14px);
-      left: 50%;
-      transform: translateX(-50%) translateY(-160%);
-      background: var(--bg-elevated);
-      border: 1px solid var(--accent);
-      box-shadow: var(--shadow);
-      border-radius: 16px;
-      padding: 12px 20px 12px 14px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      z-index: 200;
-      opacity: 0;
-      transition: transform 0.45s cubic-bezier(.34,1.56,.64,1), opacity 0.3s;
-      max-width: 90vw;
-      pointer-events: none;
-    }
-    .levelup-toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-    .levelup-badge {
-      font-size: 1.9rem;
-      animation: levelupPulse 0.6s ease;
-    }
-    @keyframes levelupPulse {
-      0% { transform: scale(0.4) rotate(-10deg); }
-      60% { transform: scale(1.25) rotate(6deg); }
-      100% { transform: scale(1) rotate(0); }
-    }
-    .levelup-title {
-      font-weight: 750;
-      font-size: 0.88rem;
-      color: var(--accent);
-    }
-    .levelup-sub {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-    }
-
     /* ─── Habit section ─── */
     .habit-header {
       display: flex;
@@ -1017,17 +926,6 @@
           <button class="btn btn-primary btn-sm" id="btnSqComplete">✓ Erledigt</button>
           <button class="btn btn-secondary btn-sm" id="btnSqSkip">⤼ Überspringen</button>
         </div>
-
-        <div class="xp-block">
-          <div class="xp-row">
-            <div class="xp-level-wrap">
-              <span class="xp-badge" id="xpBadgeIcon">🌱</span>
-              <span class="xp-level" id="xpLevelText">Level 1 · Neuling</span>
-            </div>
-          </div>
-          <div class="xp-bar-track"><div class="xp-bar-fill" id="xpBarFill"></div></div>
-          <div class="xp-numbers" id="xpNumbers">0 / 100 XP</div>
-        </div>
       </div>
 
       <!-- Habit Tracker -->
@@ -1083,15 +981,6 @@
         <button class="icon-btn" id="nextYear">›</button>
       </div>
       <div class="months-grid" id="monthsGrid"></div>
-    </div>
-  </div>
-
-  <!-- Level-up toast -->
-  <div class="levelup-toast" id="levelupToast">
-    <div class="levelup-badge" id="levelupBadgeIcon">🌱</div>
-    <div class="levelup-text">
-      <div class="levelup-title">Level Aufstieg!</div>
-      <div class="levelup-sub" id="levelupSub"></div>
     </div>
   </div>
 
@@ -1187,11 +1076,6 @@
               <option value="schwer">Schwer</option>
             </select>
           </div>
-          <div class="settings-stat-row">
-            <span>Fortschritt</span>
-            <span id="settingsXpSummary">Level 1 · 0 XP</span>
-          </div>
-          <button class="btn btn-danger btn-sm" id="btnResetXp">XP &amp; Level zurücksetzen</button>
         </div>
       </details>
 
@@ -1329,336 +1213,391 @@
     // steht in der Werte-Liste direkt die fertig gebeugte Phrase (z. B. 'eine Stunde',
     // '2 Stunden') statt einer nackten Zahl – so bleibt jede erzeugte Kombination
     // grammatikalisch korrekt.
+    // Erzeugt eine dichte, rein numerische Werte-Liste NUR für den lokalen Aufrufer
+    // (kein geteilter Zustand – jeder Aufruf liefert ein frisches, unabhängiges Array).
+    function range(start, end, step) {
+      step = step || 1;
+      const out = [];
+      for (let v = start; v <= end + 1e-9; v += step) out.push(Math.round(v * 100) / 100);
+      return out;
+    }
+
     const SIDEQUEST_BLOCKS = {
       einfach: [
         {
-          template: 'Mach {x} Minuten Plank – {stil}.',
+          template: 'Mach {x} Minuten Plank – {stil}, {haltung}.',
           values: {
-            x: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-            stil: ['in Summe, mit Pausen wenn nötig', 'am Stück ohne Unterbrechung', 'direkt nach dem Aufstehen', 'kurz vor dem Schlafengehen', 'mit ruhiger Musik im Hintergrund', 'draußen an der frischen Luft', 'ohne dabei aufs Handy zu schauen', 'in maximal zwei Sätzen'],
+            x: range(3, 16),
+            stil: ['in Summe, mit Pausen wenn nötig', 'am Stück ohne Unterbrechung', 'direkt nach dem Aufstehen', 'kurz vor dem Schlafengehen', 'mit ruhiger Musik im Hintergrund', 'draußen an der frischen Luft', 'ohne dabei aufs Handy zu schauen', 'in maximal zwei Sätzen', 'auf einer weichen Matte', 'nach einem kurzen Aufwärmen'],
+            haltung: ['mit angespanntem Bauch die ganze Zeit', 'mit geradem Rücken ohne Durchhängen', 'auf den Unterarmen', 'mit angehobenen Fersen', 'mit Blick auf einen festen Punkt', 'ohne die Hüfte durchhängen zu lassen', 'mit bewusst ruhiger Atmung', 'mit leicht angespannten Beinen', 'ganz ohne Wackeln'],
           },
         },
         {
-          template: 'Lauf oder geh {x} Minuten am Stück zügig, {bedingung}.',
+          template: 'Lauf oder geh {x} Minuten am Stück zügig, {bedingung}, {wann}.',
           values: {
-            x: [15, 18, 20, 22, 25, 28, 30, 35],
-            bedingung: ['ohne Handy', 'ohne Kopfhörer', 'in einer neuen Umgebung', 'bei jedem Wetter', 'ohne stehen zu bleiben', 'mit bewusster, tiefer Atmung', 'so schnell wie möglich'],
+            x: range(10, 40, 2),
+            bedingung: ['ohne Handy', 'ohne Kopfhörer', 'in einer neuen Umgebung', 'bei jedem Wetter', 'ohne stehen zu bleiben', 'mit bewusster, tiefer Atmung', 'so schnell wie möglich', 'in einem Park oder Wald', 'bergauf, wenn möglich', 'am Wasser entlang, wenn möglich'],
+            wann: ['gleich morgens', 'in deiner Mittagspause', 'nach der Arbeit', 'am frühen Abend', 'direkt nach dem Aufwachen', 'vor dem Frühstück', 'zwischen zwei Aufgaben', 'am Wochenende', 'wann immer du die Zeit findest'],
           },
         },
         {
           template: 'Räume {ort} in {x} Minuten komplett auf – {zusatz}.',
           values: {
-            ort: ['dein Zimmer', 'deinen Schreibtisch', 'die Küche', 'dein Bad', 'den Flur', 'dein Wohnzimmer', 'deinen Kleiderschrank', 'dein Auto', 'deine Schuhablage', 'deinen Nachttisch'],
-            x: [8, 10, 12, 15, 18, 20],
-            zusatz: ['stell dir einen Timer', 'ohne Pause dazwischen', 'und wirf dabei alles weg, was du nicht mehr brauchst', 'und sortiere dabei bewusst aus', 'mit Musik, die dich pusht', 'ganz ohne Handy in der Hand', 'im Eiltempo'],
+            ort: ['dein Zimmer', 'deinen Schreibtisch', 'die Küche', 'dein Bad', 'den Flur', 'dein Wohnzimmer', 'deinen Kleiderschrank', 'dein Auto', 'deine Schuhablage', 'deinen Nachttisch', 'dein Homeoffice-Eck', 'deine Abstellkammer'],
+            x: range(6, 24, 2),
+            zusatz: ['stell dir einen Timer', 'ohne Pause dazwischen', 'und wirf dabei alles weg, was du nicht mehr brauchst', 'und sortiere dabei bewusst aus', 'mit Musik, die dich pusht', 'ganz ohne Handy in der Hand', 'im Eiltempo', 'und wisch am Ende noch kurz durch', 'und räum alles an einen festen Platz', 'ohne dabei etwas liegen zu lassen'],
           },
         },
         {
-          template: 'Schreib {x} Minuten am Stück Tagebuch, {bedingung}.',
+          template: 'Schreib {x} Minuten am Stück Tagebuch, {bedingung}, {thema}.',
           values: {
-            x: [5, 8, 10, 12, 15, 18],
-            bedingung: ['ohne den Stift abzusetzen', 'ohne über Rechtschreibung nachzudenken', 'ganz ehrlich und ohne Filter', 'nur über positive Momente', 'über das, was dich gerade beschäftigt', 'ohne es hinterher noch mal zu lesen'],
+            x: range(4, 22, 2),
+            bedingung: ['ohne den Stift abzusetzen', 'ohne über Rechtschreibung nachzudenken', 'ganz ehrlich und ohne Filter', 'an einem ruhigen Ort', 'mit einer Tasse Tee dazu', 'ganz ohne Ablenkung', 'ohne es hinterher noch mal zu lesen', 'handschriftlich, nicht am Handy', 'bei offenem Fenster', 'bei Kerzenlicht am Abend'],
+            thema: ['über das, was dich gerade beschäftigt', 'nur über positive Momente', 'als Brief an dein zukünftiges Ich', 'über etwas, wofür du dankbar bist', 'über einen Moment aus deiner Kindheit', 'über deine Ziele fürs nächste Jahr', 'über eine Angst, die dich begleitet', 'über einen Menschen, der dir wichtig ist', 'frei, ohne bestimmtes Thema'],
           },
         },
         {
-          template: 'Mach {x} Kniebeugen, {bedingung}.',
+          template: 'Mach {x} Kniebeugen, {bedingung}, {art}.',
           values: {
-            x: [30, 40, 50, 60, 70, 80, 90, 100],
-            bedingung: ['in Sätzen wenn nötig', 'nur mit Körpergewicht', 'so langsam und sauber wie möglich', 'direkt nach dem Aufwachen', 'am Ende deines Trainings', 'mit kurzen Pausen dazwischen'],
+            x: range(20, 130, 10),
+            bedingung: ['in Sätzen wenn nötig', 'so langsam und sauber wie möglich', 'direkt nach dem Aufwachen', 'am Ende deines Trainings', 'mit kurzen Pausen dazwischen', 'ohne dabei den Rücken zu krümmen', 'mit Musik im Hintergrund', 'über den Tag verteilt', 'an einem festen Ort in der Wohnung', 'draußen an der frischen Luft'],
+            art: ['nur mit Körpergewicht', 'mit einer kleinen Pause bei der Hälfte', 'so tief wie möglich', 'im gleichmäßigen Tempo', 'mit bewusster Atmung bei jeder Wiederholung', 'mit Blick geradeaus', 'ohne die Fersen abzuheben', 'mit angespannter Körpermitte', 'als Herausforderung an dich selbst'],
           },
         },
         {
-          template: 'Trink heute {x} Liter Wasser, verteilt über den Tag – {bedingung}.',
+          template: 'Trink heute {x} Liter Wasser, verteilt über den Tag – {bedingung}, {wann}.',
           values: {
-            x: [1.5, 2, 2.5, 3],
-            bedingung: ['ohne Softdrinks dazwischen', 'mit einer Wasserflasche griffbereit', 'bevor du etwas anderes trinkst', 'auch beim Sport', 'schon vor dem Frühstück beginnend'],
+            x: [1.5, 2, 2.5, 3, 3.5],
+            bedingung: ['ohne Softdrinks dazwischen', 'mit einer Wasserflasche griffbereit', 'bevor du etwas anderes trinkst', 'auch beim Sport', 'in kleinen Schlucken über den Tag verteilt', 'mit einem festen Trinkplan', 'ohne dabei Kaffee zu zählen', 'auch bei der Arbeit', 'egal wie kalt oder warm es ist', 'auch unterwegs'],
+            wann: ['schon vor dem Frühstück beginnend', 'verteilt über den ganzen Tag', 'vor allem am Vormittag', 'auch am Abend noch', 'bei jeder Mahlzeit ein Glas mehr', 'gleich nach dem Aufstehen startend', 'bis zum späten Nachmittag', 'stündlich ein kleines Glas', 'bevor du müde wirst'],
           },
         },
         {
-          template: 'Verzichte {x} Stunden am Stück komplett auf Social Media – {bedingung}.',
+          template: 'Verzichte {x} Stunden am Stück komplett auf Social Media – {bedingung}, {alternative}.',
           values: {
-            x: [2, 3, 4, 5, 6],
-            bedingung: ['auch wenn dir langweilig wird', 'und leg das Handy dafür weit weg', 'egal was passiert', 'auch abends vor dem Schlafen', 'und nutze die Zeit stattdessen bewusst'],
+            x: range(2, 7),
+            bedingung: ['auch wenn dir langweilig wird', 'und leg das Handy dafür weit weg', 'egal was passiert', 'auch abends vor dem Schlafen', 'auch wenn andere posten', 'ganz ohne Ausnahme', 'auch bei Benachrichtigungen', 'und schalte stattdessen den Flugmodus ein', 'am besten schon direkt nach dem Aufstehen', 'auch am Wochenende'],
+            alternative: ['und nutze die Zeit stattdessen bewusst', 'und lies stattdessen ein paar Seiten', 'und geh stattdessen kurz raus', 'und ruf stattdessen jemanden an', 'und räum stattdessen etwas auf', 'und mach stattdessen ein paar Übungen', 'und schreib stattdessen ein paar Zeilen', 'und koch dir stattdessen etwas Gutes', 'und beschäftige dich mit einem Hobby'],
           },
         },
         {
-          template: 'Räum {bereich} komplett leer und sauber – {zusatz}.',
+          template: 'Räum {bereich} komplett leer und sauber – {zusatz}, {tempo}.',
           values: {
-            bereich: ['deinen Schreibtisch', 'deinen Arbeitsplatz', 'dein Nachttischchen', 'deine Kommode', 'dein Handschuhfach', 'deinen Rucksack', 'deine Handtasche', 'dein Portemonnaie', 'deine Küchenschublade'],
-            zusatz: ['wirf dabei aus, was du nicht mehr brauchst', 'wisch am Ende feucht durch', 'räume alles an einen festen Platz', 'mach danach ein Vorher-Nachher-Foto', 'nutze dafür maximal 15 Minuten', 'sortiere dabei nach Kategorien'],
+            bereich: ['deinen Schreibtisch', 'deinen Arbeitsplatz', 'dein Nachttischchen', 'deine Kommode', 'dein Handschuhfach', 'deinen Rucksack', 'deine Handtasche', 'dein Portemonnaie', 'deine Küchenschublade', 'dein Bücherregal-Fach', 'deine Konsole am Eingang', 'dein Badezimmerregal'],
+            zusatz: ['wirf dabei aus, was du nicht mehr brauchst', 'wisch am Ende feucht durch', 'räume alles an einen festen Platz', 'mach danach ein Vorher-Nachher-Foto', 'sortiere dabei nach Kategorien', 'ohne etwas einfach nur zu verschieben', 'und leg dir ein System dafür an', 'gleich jetzt, nicht später', 'ohne Pause zwischendurch', 'mit einem Müllbeutel griffbereit'],
+            tempo: ['im Eiltempo, mit Timer', 'ganz in Ruhe, Stück für Stück', 'an einem einzigen Nachmittag', 'in maximal 15 Minuten', 'bevor du dich hinsetzt', 'direkt nach der Arbeit', 'noch vor dem Frühstück', 'als kurze Pause zwischendurch'],
           },
         },
         {
-          template: 'Koch dir {mahlzeit} vollständig selbst, statt etwas Fertiges zu nehmen – {zusatz}.',
+          template: 'Koch dir {mahlzeit} vollständig selbst, statt etwas Fertiges zu nehmen – {zusatz}, {bewusstsein}.',
           values: {
-            mahlzeit: ['eine Mahlzeit', 'dein Frühstück', 'dein Mittagessen', 'dein Abendessen', 'einen Snack für später', 'eine Suppe', 'einen Salat'],
-            zusatz: ['und iss bewusst ohne Bildschirm dabei', 'mit möglichst viel Gemüse', 'und probier dabei eine neue Zutat aus', 'und koch gleich eine Portion mehr für morgen', 'ganz ohne Fertigsoße oder Tütenwürze'],
+            mahlzeit: ['eine Mahlzeit', 'dein Frühstück', 'dein Mittagessen', 'dein Abendessen', 'einen Snack für später', 'eine Suppe', 'einen Salat', 'ein warmes Gericht', 'ein Frühstück für morgen'],
+            zusatz: ['mit möglichst viel Gemüse', 'und probier dabei eine neue Zutat aus', 'und koch gleich eine Portion mehr für morgen', 'ganz ohne Fertigsoße oder Tütenwürze', 'mit einer Zutat, die du noch nie verwendet hast', 'nur mit dem, was du zu Hause hast', 'ohne dabei aufs Handy zu schauen', 'in unter 30 Minuten', 'mit einem neuen Rezept', 'ganz ohne Zucker'],
+            bewusstsein: ['und iss bewusst ohne Bildschirm dabei', 'und deck dir dafür bewusst den Tisch', 'und genieß jeden Bissen bewusst', 'und nimm dir wirklich Zeit dafür', 'ohne nebenbei etwas anderes zu tun', 'mit voller Aufmerksamkeit fürs Essen', 'und leg dabei das Handy weg', 'in Ruhe, ganz ohne Zeitdruck'],
           },
         },
         {
-          template: 'Mach {x} Minuten Dehnübungen für {bereich}.',
+          template: 'Mach {x} Minuten Dehnübungen für {bereich} – {zusatz}.',
           values: {
-            x: [10, 12, 15, 18, 20],
-            bereich: ['den ganzen Körper', 'Rücken und Nacken', 'Beine und Hüfte', 'Schultern und Arme', 'den unteren Rücken'],
+            x: range(8, 24, 2),
+            bereich: ['den ganzen Körper', 'Rücken und Nacken', 'Beine und Hüfte', 'Schultern und Arme', 'den unteren Rücken', 'die Wirbelsäule', 'Handgelenke und Unterarme', 'Waden und Füße', 'die Hüftbeuger'],
+            zusatz: ['ganz langsam und kontrolliert', 'mit bewusster Atmung', 'morgens direkt nach dem Aufstehen', 'abends vor dem Schlafen', 'nach einer kurzen Aufwärmphase', 'auf einer Matte', 'in ruhiger Umgebung', 'ohne dabei zu wippen'],
           },
         },
         {
-          template: 'Schreib {x} Dinge auf, die du diese Woche wirklich erledigen willst – {zusatz}.',
+          template: 'Schreib {x} Dinge auf, die du diese Woche wirklich erledigen willst – {zusatz}, {art}.',
           values: {
-            x: [2, 3, 4, 5, 6],
-            zusatz: ['mit festem Termin im Kalender', 'sortiert nach Wichtigkeit', 'und häng den Zettel sichtbar auf', 'und erledige das erste noch heute', 'realistisch und konkret formuliert'],
+            x: range(2, 7),
+            zusatz: ['mit festem Termin im Kalender', 'sortiert nach Wichtigkeit', 'und häng den Zettel sichtbar auf', 'und erledige das erste noch heute', 'realistisch und konkret formuliert', 'inklusive einer kleinen Belohnung danach', 'gemeinsam mit jemandem besprochen', 'handschriftlich, nicht digital', 'mit einer klaren Deadline für jedes', 'so, dass du sie wirklich abhaken kannst'],
+            art: ['persönliche und berufliche gemischt', 'nur wirklich wichtige Dinge', 'auch ein kleines, für dich selbst', 'konkret genug, um sie sofort zu starten', 'mit dem unangenehmsten zuerst', 'die dich diese Woche wirklich voranbringen', 'auch etwas, das dir Freude macht', 'messbar und überprüfbar'],
           },
         },
         {
-          template: 'Geh {x} Kilometer zu Fuß, {bedingung}.',
+          template: 'Geh {x} Kilometer zu Fuß, {bedingung}, {ziel}.',
           values: {
-            x: [2, 3, 4, 5, 6, 7],
-            bedingung: ['egal wohin', 'ohne festes Ziel', 'in einer neuen Gegend', 'bei jedem Wetter', 'ohne Handy in der Hand'],
+            x: range(2, 9),
+            bedingung: ['egal wohin', 'ohne festes Ziel', 'in einer neuen Gegend', 'bei jedem Wetter', 'ohne Handy in der Hand', 'mit einem Ziel, das du dir gerade ausdenkst', 'in aller Ruhe', 'zügig im flotten Tempo', 'entlang einer Route, die du noch nie gegangen bist', 'mit bewusstem Blick für deine Umgebung'],
+            ziel: ['ohne Kopfhörer, nur mit deinen Gedanken', 'mit einem Rucksack für ein bisschen Zusatzgewicht', 'mit einer Freundin oder einem Freund', 'ganz allein', 'über Stock und Stein, wenn möglich', 'entlang eines Flusses oder Parks', 'durch eine dir unbekannte Straße', 'bis zu einem Ort, den du dir aussuchst'],
           },
         },
         {
-          template: 'Miste {x} Kleidungsstücke aus, die du nicht mehr brauchst – {zusatz}.',
+          template: 'Miste {x} Kleidungsstücke aus, die du nicht mehr brauchst – {zusatz}, {art}.',
           values: {
-            x: [5, 8, 10, 12, 15, 18],
-            zusatz: ['und bring sie direkt weg', 'und verkaufe oder verschenke sie', 'noch heute, nicht irgendwann', 'sortiert nach Sommer- und Winterkleidung', 'aus einem einzigen Schrankfach'],
+            x: range(5, 26, 3),
+            zusatz: ['und bring sie direkt weg', 'und verkaufe oder verschenke sie', 'noch heute, nicht irgendwann', 'sortiert nach Sommer- und Winterkleidung', 'aus einem einzigen Schrankfach', 'und leg sie in eine Spendenbox', 'und mach danach Platz für Ordnung', 'ohne lange zu überlegen', 'systematisch, Stück für Stück', 'und räume den frei gewordenen Platz gleich auf'],
+            art: ['die du seit einem Jahr nicht getragen hast', 'die dir nicht mehr passen', 'die du nur aus Gewohnheit behältst', 'die kaputt oder unbrauchbar sind', 'die doppelt vorhanden sind', 'die dir einfach nicht mehr gefallen', 'die für eine andere Jahreszeit sind', 'die du nie wirklich gemocht hast'],
           },
         },
         {
-          template: 'Verzichte heute komplett auf {getraenk}.',
-          values: { getraenk: ['Kaffee', 'Energydrinks', 'Softdrinks', 'Alkohol', 'zugesetzten Zucker in Getränken', 'Fruchtsäfte', 'Limonade'] },
+          template: 'Verzichte {dauer} komplett auf {getraenk}.',
+          values: {
+            getraenk: ['Kaffee', 'Energydrinks', 'Softdrinks', 'Alkohol', 'zugesetzten Zucker in Getränken', 'Fruchtsäfte', 'Limonade', 'Eistee', 'gesüßte Kaffeegetränke'],
+            dauer: ['heute', 'bis zum Abend', 'den ganzen Tag', 'ab jetzt bis morgen früh', 'für die nächsten 24 Stunden', 'bis Mitternacht'],
+          },
         },
         {
-          template: 'Lies {x} Minuten am Stück in einem Buch, ohne Unterbrechung – {zusatz}.',
+          template: 'Lies {x} Minuten am Stück in einem Buch, ohne Unterbrechung – {zusatz}, {umgebung}.',
           values: {
-            x: [15, 20, 25, 30, 35],
-            zusatz: ['ganz ohne Handy in Reichweite', 'in einem Buch, das du schon lange anfangen wolltest', 'an einem ruhigen Ort ohne Ablenkung', 'mit einer Tasse Tee dazu', 'und mach dir danach 3 Notizen zum Gelesenen'],
+            x: range(10, 45, 5),
+            zusatz: ['ganz ohne Handy in Reichweite', 'in einem Buch, das du schon lange anfangen wolltest', 'mit einer Tasse Tee dazu', 'und mach dir danach 3 Notizen zum Gelesenen', 'ohne zwischendurch aufs Handy zu schauen', 'ganz für dich allein', 'ohne Unterbrechung durch irgendwas', 'bei gutem Licht'],
+            umgebung: ['an einem ruhigen Ort ohne Ablenkung', 'im Bett vor dem Einschlafen', 'auf einer Parkbank draußen', 'in deinem Lieblingssessel', 'bei offenem Fenster', 'mit leiser Instrumentalmusik im Hintergrund', 'ganz allein, ohne andere im Raum', 'an einem Ort, an dem du sonst nie liest'],
           },
         },
       ],
       mittel: [
         {
-          template: '{x} Minuten Sport am Stück (Cardio oder Kraft), ohne Pause länger als 1 Minute – {zusatz}.',
+          template: '{x} Minuten Sport am Stück (Cardio oder Kraft), ohne Pause länger als 1 Minute – {zusatz}, {art}.',
           values: {
-            x: [25, 30, 35, 40, 45, 50, 55, 60],
-            zusatz: ['egal ob drinnen oder draußen', 'mit einem Workout, das dich wirklich fordert', 'inklusive kurzem Aufwärmen', 'ohne dir dabei Pausen zu erlauben', 'mit Musik, die dich pusht', 'als Mix aus Cardio und Kraft'],
+            x: range(25, 65, 5),
+            zusatz: ['egal ob drinnen oder draußen', 'mit einem Workout, das dich wirklich fordert', 'inklusive kurzem Aufwärmen', 'ohne dir dabei Pausen zu erlauben', 'mit Musik, die dich pusht', 'als Mix aus Cardio und Kraft', 'direkt nach der Arbeit', 'früh am Morgen', 'am Wochenende ausführlich', 'mit einem festen Trainingsplan'],
+            art: ['Laufen oder Radfahren', 'Krafttraining mit eigenem Körpergewicht', 'HIIT-Intervalle', 'Schwimmen', 'ein Home-Workout-Video', 'Seilspringen', 'Zirkeltraining', 'eine Sportart, die du selten machst', 'eine Kombination aus allem'],
           },
         },
         {
-          template: 'Räume und organisiere {bereich} komplett neu – {zusatz}.',
+          template: 'Räume und organisiere {bereich} komplett neu – {zusatz}, {prinzip}.',
           values: {
             bereich: ['einen ganzen Schrank', 'eine Schublade', 'dein Bücherregal', 'deine Speisekammer', 'deinen Kleiderschrank', 'deine Werkzeugkiste', 'dein Büroregal', 'deine Vorratskammer', 'dein Medizinschränkchen'],
-            zusatz: ['und wirf aus, was du nicht mehr brauchst', 'nach einem festen System', 'und beschrifte alles neu', 'in maximal einer Stunde', 'und mach danach ein Foto vom Ergebnis'],
+            zusatz: ['und wirf aus, was du nicht mehr brauchst', 'nach einem festen System', 'und beschrifte alles neu', 'in maximal einer Stunde', 'und mach danach ein Foto vom Ergebnis', 'ohne Pause zwischendurch', 'systematisch, Fach für Fach', 'und leg dir feste Plätze fest', 'ohne etwas einfach nur umzuschichten', 'bis wirklich alles seinen Platz hat'],
+            prinzip: ['nach Häufigkeit der Nutzung sortiert', 'nach Kategorien geordnet', 'farblich oder größenmäßig sortiert', 'mit Etiketten versehen', 'nach dem Prinzip: raus, was seit einem Jahr ungenutzt ist', 'in Boxen oder Fächern organisiert', 'so, dass du alles auf einen Blick siehst', 'komplett neu gedacht, nicht nur aufgeräumt'],
           },
         },
         {
-          template: 'Schreib {aufgabe}, die du schon lange vor dir herschiebst – {zusatz}.',
+          template: 'Schreib {aufgabe}, die du schon lange vor dir herschiebst – {zusatz}, {haltung}.',
           values: {
             aufgabe: ['die E-Mail', 'die Nachricht', 'die Bewerbung', 'die Rückmeldung', 'die Kündigung', 'die Anfrage', 'die Beschwerde', 'die Einladung', 'die Terminanfrage', 'die Entschuldigung'],
-            zusatz: ['und schick sie noch heute ab', 'ohne sie noch einmal zu überarbeiten', 'auch wenn sie dir unangenehm ist', 'bevor du dein Handy in die Hand nimmst', 'egal wie du dich dabei fühlst'],
+            zusatz: ['und schick sie noch heute ab', 'ohne sie noch einmal zu überarbeiten', 'auch wenn sie dir unangenehm ist', 'bevor du dein Handy in die Hand nimmst', 'egal wie du dich dabei fühlst', 'so ehrlich und klar wie möglich', 'in einem Rutsch, ohne Unterbrechung', 'noch vor dem Mittagessen', 'bevor der Tag vorbei ist', 'ohne sie tagelang zu entwerfen'],
+            haltung: ['freundlich, aber bestimmt', 'kurz und auf den Punkt', 'ganz ohne Ausreden', 'mit einem klaren nächsten Schritt darin', 'ehrlich, auch wenn es unbequem ist', 'ruhig und sachlich formuliert', 'mit einem festen Datum darin', 'so, wie du es dir selbst wünschen würdest'],
           },
         },
         {
-          template: '{x} Fokus-Blöcke à 25 Minuten an einer wichtigen Aufgabe, Handy in einem anderen Raum – {zusatz}.',
+          template: '{x} Fokus-Blöcke à 25 Minuten an einer wichtigen Aufgabe, Handy in einem anderen Raum – {zusatz}, {umgebung}.',
           values: {
-            x: [2, 3, 4, 5],
-            zusatz: ['mit kurzen Pausen dazwischen', 'an einem aufgeräumten Arbeitsplatz', 'ohne jede Ablenkung', 'ganz ohne Multitasking', 'mit einem klaren Ziel pro Block'],
+            x: range(2, 6),
+            zusatz: ['mit kurzen Pausen dazwischen', 'an einem aufgeräumten Arbeitsplatz', 'ohne jede Ablenkung', 'ganz ohne Multitasking', 'mit einem klaren Ziel pro Block', 'mit Kopfhörern ohne Text', 'direkt nacheinander, ohne lange Unterbrechung', 'morgens, wenn dein Kopf am klarsten ist', 'mit einem festen Timer', 'und einer kurzen Notiz danach, was du geschafft hast'],
+            umgebung: ['im Homeoffice', 'in einer Bibliothek oder einem Café', 'an einem Ort ohne Ablenkungen', 'mit Benachrichtigungen komplett aus', 'in einem separaten Raum', 'mit aufgeräumtem Schreibtisch', 'bei geschlossener Tür', 'ganz ohne Hintergrundgeräusche'],
           },
         },
         {
-          template: 'Lauf {x} km am Stück – {bedingung}.',
+          template: 'Lauf {x} km am Stück – {bedingung}, {ziel}.',
           values: {
-            x: [4, 5, 6, 7, 8, 9, 10, 12],
-            bedingung: ['egal in welchem Tempo', 'ohne Musik, nur mit deinen Gedanken', 'auf einer neuen Route', 'bei jedem Wetter', 'so gleichmäßig wie möglich'],
+            x: range(4, 14),
+            bedingung: ['egal in welchem Tempo', 'ohne Musik, nur mit deinen Gedanken', 'auf einer neuen Route', 'bei jedem Wetter', 'so gleichmäßig wie möglich', 'früh am Morgen', 'am späten Abend', 'mit einem Freund oder einer Freundin', 'ganz allein', 'mit einem festen Ziel im Kopf'],
+            ziel: ['ohne dabei stehen zu bleiben', 'mit einer kleinen Steigerung zum letzten Mal', 'über unebenes Gelände, wenn möglich', 'entlang eines Flusses oder Parks', 'mit einem Aufwärmen davor', 'mit Dehnen danach', 'in deinem eigenen, ehrlichen Tempo', 'als Vorbereitung auf ein größeres Ziel'],
           },
         },
         {
-          template: 'Radle {x} km am Stück – {bedingung}.',
+          template: 'Radle {x} km am Stück – {bedingung}, {ziel}.',
           values: {
-            x: [12, 15, 18, 20, 22, 25, 28, 30],
-            bedingung: ['egal in welchem Tempo', 'auf einer neuen Strecke', 'ohne Pause', 'auch bei etwas schlechterem Wetter', 'so zügig wie es geht'],
+            x: range(12, 32, 2),
+            bedingung: ['egal in welchem Tempo', 'auf einer neuen Strecke', 'ohne Pause', 'auch bei etwas schlechterem Wetter', 'so zügig wie es geht', 'früh am Morgen', 'am Wochenende ausführlich', 'ganz allein', 'mit einem festen Ziel im Kopf', 'ohne Kopfhörer'],
+            ziel: ['mit einer kleinen Steigerung zum letzten Mal', 'über Hügel oder Anstiege, wenn möglich', 'entlang einer Route, die du noch nicht kennst', 'mit Aufwärmen davor', 'mit Dehnen danach', 'in deinem eigenen, ehrlichen Tempo', 'als Vorbereitung auf ein größeres Ziel', 'mit einer kurzen Verschnaufpause auf halber Strecke'],
           },
         },
         {
-          template: 'Miste {x} Kleidungsstücke aus, die du nicht mehr brauchst, und bring sie {ziel}.',
+          template: 'Miste {x} Kleidungsstücke aus – {art} – und bring sie {ziel}.',
           values: {
-            x: [15, 20, 25, 30, 35, 40],
-            ziel: ['direkt weg', 'zu einem Second-Hand-Laden', 'in eine Kleiderspende', 'noch heute zum Altkleider-Container', 'zu jemandem, der sie brauchen kann'],
+            x: range(15, 45, 5),
+            art: ['die du seit einem Jahr nicht getragen hast', 'die dir nicht mehr passen', 'doppelt vorhandene Stücke', 'kaputte oder unbrauchbare Teile', 'Dinge aus einer vergangenen Lebensphase', 'was dir einfach nicht mehr gefällt', 'was du nur aus schlechtem Gewissen behältst', 'Dinge, die andere gut gebrauchen könnten'],
+            ziel: ['direkt weg', 'zu einem Second-Hand-Laden', 'in eine Kleiderspende', 'noch heute zum Altkleider-Container', 'zu jemandem, der sie brauchen kann', 'über eine Verkaufs-App', 'an Freunde oder Familie verteilt', 'zu einer sozialen Einrichtung'],
           },
         },
         {
-          template: 'Koche {x} komplette Mahlzeiten für die nächsten Tage vor (Meal Prep) – {zusatz}.',
+          template: 'Koche {x} komplette Mahlzeiten für die nächsten Tage vor (Meal Prep) – {zusatz}, {prinzip}.',
           values: {
-            x: [2, 3, 4, 5],
-            zusatz: ['mit viel Gemüse', 'und portioniere sie einzeln', 'ganz ohne Fertigprodukte', 'und beschrifte jede Portion mit Datum', 'für eine ganze Arbeitswoche'],
+            x: range(2, 6),
+            zusatz: ['mit viel Gemüse', 'und portioniere sie einzeln', 'ganz ohne Fertigprodukte', 'und beschrifte jede Portion mit Datum', 'für eine ganze Arbeitswoche', 'mit unterschiedlichen Zutaten, nicht immer dasselbe', 'und friere einen Teil davon ein', 'mit einem festen Kochplan', 'an einem einzigen Nachmittag', 'mit möglichst wenig Verpackungsmüll'],
+            prinzip: ['ausgewogen aus Kohlenhydraten, Eiweiß und Gemüse', 'bewusst kalorienreduziert', 'bewusst proteinreich', 'komplett vegetarisch oder vegan', 'mit einer neuen Zutat, die du ausprobierst', 'möglichst günstig und trotzdem gesund', 'nach einem festen Wochenplan', 'mit Resten vom Vortag klug kombiniert'],
           },
         },
         {
-          template: 'Erledige {aufgabe} auf deiner To-Do-Liste zuerst – {zusatz}.',
+          template: 'Erledige {aufgabe} auf deiner To-Do-Liste zuerst – {zusatz}, {grund}.',
           values: {
-            aufgabe: ['die unangenehmste Aufgabe', 'die am längsten aufgeschobene Aufgabe', 'die schwierigste Aufgabe', 'die Aufgabe, vor der du dich am meisten drückst', 'die größte Aufgabe', 'die Aufgabe mit der nächsten Frist', 'die Aufgabe, die dir am meisten Kopfschmerzen bereitet'],
-            zusatz: ['heute, nicht morgen', 'noch vor dem Mittagessen', 'ohne sie noch einmal aufzuschieben', 'auch wenn dir nicht danach ist', 'bevor du irgendetwas anderes tust'],
+            aufgabe: ['die unangenehmste Aufgabe', 'die am längsten aufgeschobene Aufgabe', 'die schwierigste Aufgabe', 'die Aufgabe, vor der du dich am meisten drückst,', 'die größte Aufgabe', 'die Aufgabe mit der nächsten Frist', 'die Aufgabe, die dir am meisten Kopfschmerzen bereitet,'],
+            zusatz: ['heute, nicht morgen', 'noch vor dem Mittagessen', 'ohne sie noch einmal aufzuschieben', 'auch wenn dir nicht danach ist', 'bevor du irgendetwas anderes tust', 'als Erstes am Morgen', 'ohne dich vorher noch abzulenken', 'in einem Rutsch, ohne Pause', 'egal wie du dich dabei fühlst', 'mit einer kleinen Belohnung danach'],
+            grund: ['weil du dich danach erleichtert fühlen wirst', 'weil sie sonst immer größer wird', 'weil du sie eh nicht loswirst, bis sie erledigt ist', 'weil sie dir gerade am meisten im Kopf herumgeht', 'weil Aufschieben mehr Energie kostet als Erledigen', 'weil danach alles andere leichter wird', 'weil du es dir selbst schuldig bist', 'weil sie schon viel zu lange wartet'],
           },
         },
         {
-          template: '{x} Minuten fokussiertes Lernen oder Lesen zu einem Thema, das dich weiterbringt, ohne Ablenkung – {zusatz}.',
+          template: '{x} Minuten fokussiertes Lernen oder Lesen {thema}, ohne Ablenkung – {zusatz}.',
           values: {
-            x: [35, 40, 45, 50, 55, 60, 70],
-            zusatz: ['Handy komplett aus', 'mit Notizen zum Gelernten', 'an einem festen, ruhigen Ort', 'zu einem Thema, das dich beruflich weiterbringt', 'mit einer kurzen Zusammenfassung danach'],
+            x: range(35, 75, 5),
+            thema: ['zu einem Thema, das dich beruflich weiterbringt', 'zu einer neuen Fähigkeit, die du lernen willst', 'zu einem Thema, das dich einfach interessiert', 'zu deiner Finanzbildung', 'zu einer Sprache, die du lernen willst', 'in einem Buch, das du schon lange liegen hast', 'zu einem Kurs, den du begonnen hast', 'zu einem Thema aus deinem Berufsfeld'],
+            zusatz: ['Handy komplett aus', 'mit Notizen zum Gelernten', 'an einem festen, ruhigen Ort', 'mit einer kurzen Zusammenfassung danach', 'ganz ohne Ablenkung', 'mit einer Tasse Tee oder Kaffee dazu', 'in einem Rutsch, ohne Pause', 'mit einem klaren Lernziel vorher festgelegt', 'morgens, wenn dein Kopf frisch ist', 'abends, als bewusster Tagesabschluss'],
           },
         },
         {
-          template: 'Ruf {person} an (kein Text!) – {zusatz}.',
+          template: 'Ruf {person} an (kein Text!) – {zusatz}, {thema}.',
           values: {
             person: ['einen alten Freund', 'eine alte Freundin', 'ein Familienmitglied', 'eine entfernte Verwandte', 'einen alten Kumpel', 'eine ehemalige Kollegin', 'einen ehemaligen Kollegen', 'eine alte Schulfreundin', 'einen alten Schulfreund'],
-            zusatz: ['jemanden, mit dem du lange nicht gesprochen hast', 'und nimm dir wirklich Zeit für das Gespräch', 'einfach nur, um Hallo zu sagen', 'und frag aktiv nach, wie es der Person geht', 'ganz ohne besonderen Anlass'],
+            zusatz: ['jemanden, mit dem du lange nicht gesprochen hast', 'und nimm dir wirklich Zeit für das Gespräch', 'einfach nur, um Hallo zu sagen', 'und frag aktiv nach, wie es der Person geht', 'ganz ohne besonderen Anlass', 'ohne dabei etwas anderes nebenbei zu tun', 'mit voller Aufmerksamkeit', 'ohne das Gespräch abzukürzen', 'auch wenn es dir erstmal unangenehm ist', 'und verabrede gleich ein nächstes Treffen'],
+            thema: ['und erzähl auch von dir selbst', 'und hör vor allem aktiv zu', 'über gemeinsame Erinnerungen', 'über das, was bei der Person gerade los ist', 'ganz offen, ohne Small Talk', 'mit einer ehrlichen Frage, wie es ihr wirklich geht', 'über Pläne für die Zukunft', 'einfach entspannt, ohne Agenda'],
           },
         },
         {
-          template: 'Putz {bereich} gründlich – {zusatz}.',
+          template: 'Putz {bereich} gründlich – {zusatz}, {detail}.',
           values: {
             bereich: ['deine ganze Wohnung', 'dein ganzes Zimmer', 'das komplette Bad', 'die komplette Küche', 'dein Homeoffice', 'dein ganzes Auto von innen', 'den kompletten Flur'],
-            zusatz: ['Boden, Oberflächen, alles', 'inklusive aller Ecken, die du sonst auslässt', 'mit frischer Bettwäsche oder Handtüchern danach', 'in einem Rutsch, ohne Unterbrechung', 'und lüfte danach gründlich durch'],
+            zusatz: ['Boden, Oberflächen, alles', 'inklusive aller Ecken, die du sonst auslässt', 'mit frischer Bettwäsche oder Handtüchern danach', 'in einem Rutsch, ohne Unterbrechung', 'und lüfte danach gründlich durch', 'mit Musik, die dich motiviert', 'systematisch, Raum für Raum', 'ohne etwas auszulassen', 'und wirf dabei gleich Müll aus', 'bis es wirklich glänzt'],
+            detail: ['auch die Fenster', 'auch hinter Möbeln, wo sonst niemand putzt', 'auch Türklinken und Lichtschalter', 'auch den Kühlschrank von innen', 'auch die Fugen im Bad', 'auch Staub auf Regalen und Lampen', 'auch den Mülleimer selbst', 'auch die Fußleisten'],
           },
         },
         {
-          template: '{x} Minuten zu Fuß gehen, telefonfrei, ohne Musik – {zusatz}.',
+          template: '{x} Minuten zu Fuß gehen, telefonfrei, ohne Musik – {zusatz}, {ziel}.',
           values: {
-            x: [45, 50, 60, 70, 75, 90, 100],
-            zusatz: ['nur mit dir selbst', 'und beobachte bewusst deine Umgebung', 'in einer Gegend, die du noch nicht kennst', 'und lass das Handy zu Hause', 'egal bei welchem Wetter'],
+            x: range(45, 105, 5),
+            zusatz: ['nur mit dir selbst', 'und beobachte bewusst deine Umgebung', 'in einer Gegend, die du noch nicht kennst', 'und lass das Handy zu Hause', 'egal bei welchem Wetter', 'ohne festes Ziel', 'mit einem Ziel, das dir wichtig ist', 'früh am Morgen', 'am späten Abend', 'als bewusste Auszeit vom Alltag'],
+            ziel: ['durch einen Park oder Wald', 'entlang eines Gewässers', 'durch ein dir unbekanntes Viertel', 'einmal um einen ganzen See oder Park', 'mit ein paar bewussten Verschnaufpausen', 'ohne bestimmten Zweck, nur zum Gehen', 'so, dass du danach richtig durchgelüftet bist', 'mit offenen Augen für Details, die dir sonst entgehen'],
           },
         },
         {
-          template: 'Plane deine nächsten {x} Wochen konkret in einem Kalender – {zusatz}.',
+          template: 'Plane deine nächsten {x} Wochen konkret in einem Kalender – {zusatz}, {bereich}.',
           values: {
-            x: [2, 3, 4, 6, 8],
-            zusatz: ['Termine und Ziele', 'inklusive fester Sportzeiten', 'mit mindestens einem großen Ziel pro Woche', 'und trag alles direkt ein, nicht nur im Kopf', 'realistisch, aber ambitioniert'],
+            x: range(2, 8),
+            zusatz: ['Termine und Ziele', 'inklusive fester Sportzeiten', 'mit mindestens einem großen Ziel pro Woche', 'und trag alles direkt ein, nicht nur im Kopf', 'realistisch, aber ambitioniert', 'inklusive fester Pufferzeiten', 'mit klaren Prioritäten markiert', 'auch private Termine, nicht nur berufliche', 'farblich sortiert nach Lebensbereichen', 'so, dass du jede Woche einen Überblick hast'],
+            bereich: ['Beruf und private Ziele gemischt', 'vor allem gesundheitliche Ziele', 'vor allem berufliche Meilensteine', 'auch bewusste freie Zeit', 'ein großes Projekt in kleine Schritte zerlegt', 'auch soziale Kontakte, die du pflegen willst', 'finanzielle Ziele mit eingeplant', 'eine neue Gewohnheit, die du etablieren willst'],
           },
         },
         {
-          template: 'Verzichte {dauer} auf Zucker und verarbeitete Snacks – {zusatz}.',
+          template: 'Verzichte {dauer} auf Zucker und verarbeitete Snacks – {zusatz}, {ersatz}.',
           values: {
             dauer: ['einen ganzen Tag', '2 Tage', '3 Tage', '4 Tage', '5 Tage'],
-            zusatz: ['auch auf versteckten Zucker in Soßen und Getränken', 'komplett, ohne Ausnahme', 'und ersetze Süßes durch Obst', 'auch bei Kaffee oder Tee', 'auch am Wochenende'],
+            zusatz: ['auch auf versteckten Zucker in Soßen und Getränken', 'komplett, ohne Ausnahme', 'und ersetze Süßes durch Obst', 'auch bei Kaffee oder Tee', 'auch am Wochenende', 'auch bei Fertigprodukten mit Zuckerzusatz', 'egal wie stark der Heißhunger wird', 'auch wenn andere um dich herum naschen', 'auch bei vermeintlich „gesunden" Snacks', 'konsequent bei jeder Mahlzeit'],
+            ersatz: ['mit Obst als Süßes', 'mit Nüssen als Snack', 'mit ungesüßtem Tee statt Softdrinks', 'mit selbst gemachten, zuckerfreien Alternativen', 'mit mehr Gemüse als Sattmacher', 'mit bewusst geplanten Mahlzeiten gegen Heißhunger', 'mit viel Wasser gegen Lust auf Süßes', 'mit Bewegung statt Frustessen'],
           },
         },
         {
-          template: 'Mach ein {x}-minütiges Workout, das du dir vorher noch nie zugetraut hast – {zusatz}.',
+          template: 'Mach ein {x}-minütiges Workout, das du dir vorher noch nie zugetraut hast – {zusatz}, {art}.',
           values: {
-            x: [20, 25, 30, 35, 40, 45, 50],
-            zusatz: ['und filme oder tracke es diesmal', 'mit einer neuen Übung dabei', 'bis an deine Grenze', 'ganz ohne Pause zwischen den Übungen', 'als Herausforderung an dich selbst'],
+            x: range(20, 50, 5),
+            zusatz: ['und filme oder tracke es diesmal', 'mit einer neuen Übung dabei', 'bis an deine Grenze', 'ganz ohne Pause zwischen den Übungen', 'als Herausforderung an dich selbst', 'mit einem Trainingspartner, wenn möglich', 'früh am Morgen', 'als Highlight deiner Woche', 'mit lauter Musik, die dich pusht', 'und notiere danach, wie es sich angefühlt hat'],
+            art: ['ein neuer Kurs, den du noch nie gemacht hast', 'ein Workout aus dem Internet, das dich reizt', 'eine Sportart, die du noch nie ausprobiert hast', 'ein intensives Zirkeltraining', 'ein Workout mit reinem Körpergewicht', 'ein Training mit Zusatzgewichten', 'ein Ausdauer-Workout an deiner Grenze', 'ein Workout, das dir vorher zu schwer erschien'],
           },
         },
       ],
       schwer: [
         {
-          template: '{x} Minuten intensives Workout (HIIT, Laufen, Krafttraining) ohne Abbruch – {zusatz}.',
+          template: '{x} Minuten intensives Workout (HIIT, Laufen, Krafttraining) ohne Abbruch – {zusatz}, {art}.',
           values: {
-            x: [45, 50, 55, 60, 65, 70, 75, 80],
-            zusatz: ['bis du wirklich nicht mehr kannst', 'mit maximalem Einsatz', 'ganz ohne Pause zwischen den Übungen', 'als härtestes Training der Woche', 'mit einem Tempo, das dich fordert'],
+            x: range(45, 85, 5),
+            zusatz: ['bis du wirklich nicht mehr kannst', 'mit maximalem Einsatz', 'ganz ohne Pause zwischen den Übungen', 'als härtestes Training der Woche', 'mit einem Tempo, das dich fordert', 'ohne dir Ausreden zu erlauben', 'früh am Morgen, bevor der Tag beginnt', 'mit einem klaren, hart erkämpften Ziel', 'trotz Müdigkeit oder schlechter Laune', 'als bewusster Test deiner Grenzen'],
+            art: ['HIIT mit kurzen, intensiven Intervallen', 'ein langer, harter Lauf', 'ein komplettes Krafttraining, Ganzkörper', 'eine Kombination aus Cardio und Kraft', 'ein Kurs, der dich normalerweise abschreckt', 'ein Training mit Zusatzgewicht', 'ein Ausdauertraining an deiner Belastungsgrenze', 'ein Training, das du dir noch nie zugetraut hast'],
           },
         },
         {
-          template: 'Digitales Detox: {x} Stunden am Stück ohne Handy, Social Media oder Streaming – {zusatz}.',
+          template: 'Digitales Detox: {x} Stunden am Stück ohne Handy, Social Media oder Streaming – {zusatz}, {ersatz}.',
           values: {
-            x: [4, 5, 6, 7, 8, 10],
-            zusatz: ['egal was in der Zeit passiert', 'auch wenn dir langweilig wird', 'mit dem Handy komplett außer Reichweite', 'auch am Wochenende', 'ganz ohne Ausnahme für "nur kurz nachschauen"'],
+            x: range(4, 10),
+            zusatz: ['egal was in der Zeit passiert', 'auch wenn dir langweilig wird', 'mit dem Handy komplett außer Reichweite', 'auch am Wochenende', 'ganz ohne Ausnahme für „nur kurz nachschauen"', 'auch wenn wichtige Nachrichten kommen könnten', 'ohne Ersatz durch einen anderen Bildschirm', 'komplett, auch kein Fernsehen', 'egal wie unruhig du dabei wirst', 'als bewusste Grenze für dich selbst'],
+            ersatz: ['und lies stattdessen ein Buch', 'und geh stattdessen nach draußen', 'und triff dich stattdessen mit jemandem', 'und räum stattdessen etwas gründlich auf', 'und mach stattdessen Sport', 'und koch dir stattdessen etwas Aufwändiges', 'und schreib stattdessen in ein Tagebuch', 'und beschäftige dich mit einem Hobby'],
           },
         },
         {
-          template: 'Steh morgen {dauer} früher auf als sonst und nutze die Zeit produktiv – {zusatz}.',
+          template: 'Steh morgen {dauer} früher auf als sonst und nutze die Zeit produktiv – {zusatz}, {nutzung}.',
           values: {
             dauer: ['eine Stunde', '90 Minuten', '2 Stunden'],
-            zusatz: ['für Sport oder Bewegung', 'für dein wichtigstes Projekt', 'ganz ohne Snooze-Taste', 'für ungestörte, fokussierte Arbeit', 'ohne danach müde auf die Couch zu fallen'],
+            zusatz: ['für Sport oder Bewegung', 'für dein wichtigstes Projekt', 'ganz ohne Snooze-Taste', 'für ungestörte, fokussierte Arbeit', 'ohne danach müde auf die Couch zu fallen', 'auch wenn es dir schwerfällt', 'jeden Tag dieser Woche', 'trotz später Nacht zuvor', 'mit einem festen Ritual danach', 'ganz ohne Ausnahme'],
+            nutzung: ['für ein intensives Workout', 'für dein wichtigstes, anspruchsvollstes Projekt', 'für ungestörtes, tiefes Lernen', 'für eine bewusste Morgenroutine', 'um dem Tag einen Vorsprung zu verschaffen', 'für kreative Arbeit, wenn dein Kopf frisch ist', 'für Planung und Reflexion', 'für etwas, das du sonst nie schaffst'],
           },
         },
         {
-          template: '{x} km am Stück laufen – {zusatz}.',
+          template: '{x} km am Stück laufen – {zusatz}, {ziel}.',
           values: {
-            x: [8, 10, 12, 15, 18, 20],
-            zusatz: ['egal in welchem Tempo, Hauptsache durchgezogen', 'ohne Musik, nur mit deinen Gedanken', 'auf einer neuen, anspruchsvollen Strecke', 'auch wenn es unangenehm wird', 'mit einer persönlichen Bestzeit im Kopf'],
+            x: range(8, 22, 2),
+            zusatz: ['egal in welchem Tempo, Hauptsache durchgezogen', 'ohne Musik, nur mit deinen Gedanken', 'auf einer neuen, anspruchsvollen Strecke', 'auch wenn es unangenehm wird', 'mit einer persönlichen Bestzeit im Kopf', 'bei jedem Wetter', 'früh am Morgen, vor der Hitze', 'auch wenn deine Beine schon müde sind', 'ohne beim ersten Widerstand aufzugeben', 'als härteste Laufeinheit dieser Woche'],
+            ziel: ['über anspruchsvolles, hügeliges Gelände', 'als längste Distanz, die du bisher gelaufen bist', 'mit einem klaren Ziel: durchhalten, nicht aufgeben', 'mit bewusst kontrolliertem Tempo am Anfang', 'mit einem Endspurt am Schluss', 'als Vorbereitung auf ein größeres Laufziel', 'ganz allein, mit dir selbst im Kopf', 'mit Aufwärmen davor und Dehnen danach'],
           },
         },
         {
-          template: '{x} km am Stück Rad fahren – {zusatz}.',
+          template: '{x} km am Stück Rad fahren – {zusatz}, {ziel}.',
           values: {
-            x: [25, 30, 35, 40, 50, 60],
-            zusatz: ['egal bei welchem Wetter', 'auf einer neuen, anspruchsvollen Strecke', 'ohne lange Pausen', 'so zügig wie möglich', 'bis du wirklich erschöpft bist'],
+            x: range(25, 65, 5),
+            zusatz: ['egal bei welchem Wetter', 'auf einer neuen, anspruchsvollen Strecke', 'ohne lange Pausen', 'so zügig wie möglich', 'bis du wirklich erschöpft bist', 'mit anspruchsvollen Anstiegen, wenn möglich', 'früh am Morgen', 'als härteste Radeinheit dieser Woche', 'ohne beim ersten Gegenwind aufzugeben', 'mit einer persönlichen Bestzeit im Kopf'],
+            ziel: ['über hügeliges oder anspruchsvolles Gelände', 'als längste Strecke, die du bisher gefahren bist', 'mit bewusst kontrolliertem Tempo am Anfang', 'mit einem kraftvollen Schlussspurt', 'als Vorbereitung auf ein größeres Ziel', 'ganz allein, mit dir selbst im Kopf', 'mit Aufwärmen davor und Dehnen danach', 'mit einer kurzen, bewussten Verschnaufpause auf halber Strecke'],
           },
         },
         {
-          template: 'Räume {bereich} von Grund auf auf (mind. {dauer} Arbeit).',
+          template: 'Räume {bereich} von Grund auf auf (mind. {dauer} Arbeit) – {zusatz}.',
           values: {
             bereich: ['eine komplette Wohnung', 'ein komplettes Haus', 'die Garage', 'den Keller', 'den Dachboden', 'die gesamte Küche', 'die gesamte Werkstatt'],
             dauer: ['1 Stunde', '2 Stunden', '3 Stunden', '4 Stunden'],
+            zusatz: ['und wirf dabei aus, was seit Jahren ungenutzt herumliegt', 'ohne dir dabei eine Verschnaufpause zu erlauben', 'systematisch, Bereich für Bereich', 'bis wirklich alles einen festen Platz hat', 'mit lauter Musik, die dich durchhalten lässt', 'ohne bei der ersten Erschöpfung aufzuhören', 'und entsorge dabei konsequent, was Müll ist', 'als größte Aufräumaktion des Jahres'],
           },
         },
         {
-          template: 'Kalte Dusche – volle {x} Minuten durchhalten, ohne warmes Wasser dazwischen – {zusatz}.',
+          template: 'Kalte Dusche – volle {x} Minuten durchhalten, ohne warmes Wasser dazwischen – {zusatz}, {moment}.',
           values: {
-            x: [2, 3, 4, 5],
-            zusatz: ['egal wie kalt es ist', 'gleich morgens als Erstes', 'ohne dabei aufzugeben', 'mit bewusster, ruhiger Atmung', 'auch wenn dein Kopf dagegen schreit'],
+            x: range(2, 5),
+            zusatz: ['egal wie kalt es ist', 'gleich morgens als Erstes', 'ohne dabei aufzugeben', 'mit bewusster, ruhiger Atmung', 'auch wenn dein Kopf dagegen schreit', 'an jedem Tag dieser Woche', 'ohne dich innerlich darauf vorzubereiten', 'so kalt wie dein Wasserhahn es hergibt', 'ohne die Zeit heimlich zu verkürzen', 'als bewusster mentaler Härtetest'],
+            moment: ['direkt nach dem Aufwachen', 'am Ende einer heißen Dusche', 'nach dem Sport', 'als letzter Teil deiner Morgenroutine', 'mitten am Tag, als Weckruf', 'bevor du dich für schwierig hältst und aufgibst', 'als Belohnung nach einem harten Training', 'ganz bewusst, ohne Ablenkung dabei'],
           },
         },
         {
-          template: 'Erledige {x} aufgeschobene, unangenehme Aufgaben an einem einzigen Tag – {zusatz}.',
+          template: 'Erledige {x} aufgeschobene, unangenehme Aufgaben an einem einzigen Tag – {zusatz}, {art}.',
           values: {
-            x: [2, 3, 4, 5],
-            zusatz: ['egal wie unangenehm sie sind', 'ganz ohne sie noch länger aufzuschieben', 'bevor du dir irgendetwas anderes erlaubst', 'auch wenn du dafür extra Zeit einplanen musst', 'und hak jede davon sichtbar ab'],
+            x: range(2, 6),
+            zusatz: ['egal wie unangenehm sie sind', 'ganz ohne sie noch länger aufzuschieben', 'bevor du dir irgendetwas anderes erlaubst', 'auch wenn du dafür extra Zeit einplanen musst', 'und hak jede davon sichtbar ab', 'an einem einzigen langen Tag', 'ohne dich dabei ablenken zu lassen', 'auch wenn du eigentlich keine Lust hast', 'egal wie lange du sie schon vor dir herschiebst', 'als Befreiungsschlag für deinen Kopf'],
+            art: ['administrative Dinge, die sich stapeln', 'unangenehme Gespräche oder Anrufe', 'Aufgaben, vor denen du am meisten Respekt hast', 'Kleinigkeiten, die sich zu einem großen Berg summiert haben', 'Dinge, die andere von dir erwarten', 'finanzielle oder bürokratische Aufgaben', 'etwas, das du seit Monaten vor dir herschiebst', 'Aufgaben, die dir im Kopf am meisten Platz einnehmen'],
           },
         },
         {
-          template: 'Schreib einen vollständigen Plan für ein großes Ziel inkl. konkreter nächster Schritte (mind. {x} Minuten Arbeit daran) – {zusatz}.',
+          template: 'Schreib einen vollständigen Plan für {inhalt} inkl. konkreter nächster Schritte (mind. {x} Minuten Arbeit daran) – {zusatz}.',
           values: {
-            x: [30, 40, 45, 60, 75, 90],
-            zusatz: ['mit realistischem Zeitrahmen', 'inklusive möglicher Hindernisse und Lösungen', 'so konkret, dass du morgen direkt loslegen kannst', 'mit einem festen ersten Schritt für morgen', 'ganz ohne es auf später zu verschieben'],
+            x: range(30, 90, 10),
+            inhalt: ['ein berufliches Ziel für die nächsten 12 Monate', 'ein großes finanzielles Ziel', 'ein persönliches Wachstumsziel', 'ein Fitness- oder Gesundheitsziel', 'ein Ziel für eine neue Fähigkeit', 'ein Ziel, das dich wirklich aus deiner Komfortzone holt,', 'ein lang aufgeschobenes Lebensziel', 'ein Ziel, das nur dir selbst wichtig ist,'],
+            zusatz: ['mit realistischem Zeitrahmen', 'inklusive möglicher Hindernisse und Lösungen', 'so konkret, dass du morgen direkt loslegen kannst', 'mit einem festen ersten Schritt für morgen', 'ganz ohne es auf später zu verschieben', 'handschriftlich, nicht nur im Kopf', 'mit klaren Meilensteinen', 'so, dass du ihn jemandem zeigen könntest'],
           },
         },
         {
-          template: '{x} Liegestütze über den Tag verteilt, in Sätzen – {zusatz}.',
+          template: '{x} Liegestütze über den Tag verteilt, in Sätzen – {zusatz}, {art}.',
           values: {
-            x: [80, 100, 120, 150, 180, 200],
-            zusatz: ['so sauber wie möglich ausgeführt', 'egal wie klein die Sätze sind', 'auch wenn die letzten richtig wehtun', 'verteilt über mindestens drei Sätze', 'ohne einen einzigen Tag auszulassen'],
+            x: range(80, 220, 20),
+            zusatz: ['so sauber wie möglich ausgeführt', 'egal wie klein die Sätze sind', 'auch wenn die letzten richtig wehtun', 'verteilt über mindestens drei Sätze', 'ohne einen einzigen Tag auszulassen', 'mit bewusster, kontrollierter Bewegung', 'auch wenn deine Arme schon zittern', 'als härteste Übung deines Tages'],
+            art: ['klassisch, mit geradem Körper', 'auf den Fäusten oder Griffen', 'mit erhöhten Füßen für mehr Intensität', 'in engem Handstand für die Trizeps', 'so tief wie möglich bei jeder Wiederholung', 'in schneller Folge, ohne lange Pausen', 'über den Tag in mehreren Blöcken verteilt', 'als persönliche Bestleistung, die du knackst'],
           },
         },
         {
-          template: '{dauer} ohne jegliche Süßigkeiten, Alkohol oder Fastfood – {zusatz}.',
+          template: '{dauer} ohne jegliche Süßigkeiten, Alkohol oder Fastfood – {zusatz}, {grund}.',
           values: {
             dauer: ['Ein voller Tag', 'Zwei volle Tage', 'Drei volle Tage', 'Vier volle Tage'],
-            zusatz: ['ganz ohne Ausnahmen', 'auch bei Feiern oder Einladungen', 'auch wenn es dir schwerfällt', 'und ersetze es bewusst durch etwas Gesundes', 'egal was andere um dich herum essen'],
+            zusatz: ['ganz ohne Ausnahmen', 'auch bei Feiern oder Einladungen', 'auch wenn es dir schwerfällt', 'und ersetze es bewusst durch etwas Gesundes', 'egal was andere um dich herum essen', 'auch bei Stress oder schlechter Laune', 'ohne heimliche Ausnahmen für „nur eine Kleinigkeit"', 'konsequent bei jeder Mahlzeit', 'auch unterwegs oder auf Reisen', 'als bewusster Reset für deinen Körper'],
+            grund: ['um zu merken, wie sehr du davon abhängig bist', 'als Test deiner Selbstdisziplin', 'um deinem Körper eine Pause zu gönnen', 'um bewusster zu essen', 'um wieder mehr Kontrolle über Gewohnheiten zu spüren', 'als Vorbereitung auf ein größeres Ziel', 'um zu sehen, wie du dich danach fühlst', 'einfach, um es dir selbst zu beweisen'],
           },
         },
         {
-          template: 'Führe {gespraech}, das du schon lange aufschiebst – {zusatz}.',
+          template: 'Führe {gespraech}, das du schon lange aufschiebst – {zusatz}. Tipp: {vorbereitung}.',
           values: {
             gespraech: ['ein ehrliches, unangenehmes Gespräch', 'ein längst überfälliges Gespräch', 'ein klärendes Gespräch', 'ein schwieriges Gespräch mit einer wichtigen Person', 'ein Gespräch, vor dem du dich am meisten drückst', 'ein Gespräch über ein Thema, das du sonst vermeidest'],
-            zusatz: ['auch wenn es unangenehm wird', 'ehrlich und ohne Ausreden', 'noch diese Woche', 'egal wie das Gespräch ausgeht', 'auch wenn du Angst vor der Reaktion hast'],
+            zusatz: ['auch wenn es unangenehm wird', 'ehrlich und ohne Ausreden', 'noch diese Woche', 'egal wie das Gespräch ausgeht', 'auch wenn du Angst vor der Reaktion hast', 'ruhig und respektvoll, aber klar', 'ohne es noch länger vor dir herzuschieben', 'von Angesicht zu Angesicht, nicht per Text', 'auch wenn deine Stimme dabei zittert', 'so ehrlich, wie du es dir von der anderen Person wünschen würdest'],
+            vorbereitung: ['schreib dir vorher die wichtigsten Punkte auf', 'überlege dir vorher, wie du beginnen willst', 'geh es in Gedanken einmal durch', 'wähl bewusst einen ruhigen Moment dafür', 'nimm dir danach Zeit, es sacken zu lassen', 'sag dir vorher, warum es sich lohnt', 'erinnere dich daran, dass Klarheit erleichtert', 'geh ohne festes Ergebnis im Kopf hinein, nur mit Ehrlichkeit'],
           },
         },
         {
-          template: '{x} Stunden am Stück an einem großen Projekt arbeiten, ohne jede Unterbrechung – {zusatz}.',
+          template: '{x} Stunden am Stück an {art} arbeiten, ohne jede Unterbrechung – {zusatz}.',
           values: {
-            x: [2, 3, 4, 5],
-            zusatz: ['Handy komplett aus', 'ohne eine einzige Pause', 'bis zu einem klar definierten Meilenstein', 'auch wenn es zäh wird', 'mit voller Konzentration von Anfang bis Ende'],
+            x: range(2, 5),
+            art: ['deinem wichtigsten beruflichen Projekt', 'einem persönlichen Herzensprojekt', 'etwas, das du schon lange aufschiebst,', 'einem kreativen Projekt', 'einem Projekt mit echtem Fortschritt danach', 'etwas, das dich beruflich weiterbringt,', 'einem Projekt, das dir wirklich wichtig ist,', 'etwas, das du nur für dich selbst tust,'],
+            zusatz: ['Handy komplett aus', 'ohne eine einzige Pause', 'bis zu einem klar definierten Meilenstein', 'auch wenn es zäh wird', 'mit voller Konzentration von Anfang bis Ende', 'ohne dich ablenken zu lassen', 'an einem ruhigen, festen Ort', 'mit einem klaren Endziel für diese Sitzung'],
           },
         },
         {
-          template: 'Steh einen ganzen Tag lang nicht länger als {x} Minuten am Stück – {zusatz}.',
+          template: 'Steh einen ganzen Tag lang nicht länger als {x} Minuten am Stück – {zusatz}, {umsetzung}.',
           values: {
-            x: [20, 25, 30, 35, 40],
-            zusatz: ['bau regelmäßig Bewegung ein', 'stell dir dafür einen Timer', 'auch im Homeoffice', 'egal wie unbequem das ist', 'und steh bei jedem Telefonat auf'],
+            x: range(20, 40, 5),
+            zusatz: ['bau regelmäßig Bewegung ein', 'stell dir dafür einen Timer', 'auch im Homeoffice', 'egal wie unbequem das ist', 'und steh bei jedem Telefonat auf', 'den ganzen Tag konsequent', 'auch bei langen Meetings', 'ohne Ausnahme, egal was ansteht', 'auch wenn andere sitzen bleiben', 'als bewusstes Signal an deinen Körper'],
+            umsetzung: ['mach kleine Dehnübungen dazwischen', 'geh in jeder Pause ein paar Schritte', 'wechsle bewusst zwischen Sitzen und Stehen', 'nutze einen Stehtisch, wenn vorhanden', 'steh bei jedem Telefonat oder Video-Call auf', 'plane feste Bewegungsminuten pro Stunde ein', 'erinnere dich mit einem Alarm daran', 'mach daraus ein kleines Spiel mit dir selbst'],
           },
         },
         {
-          template: 'Melde dich für {sache} an – {zusatz}.',
+          template: 'Melde dich für {sache} an – {zusatz}, {gefuehl}.',
           values: {
             sache: ['einen Kurs', 'ein Event', 'eine Herausforderung', 'einen Wettbewerb', 'ein Ehrenamt', 'eine neue Sportart', 'ein Seminar', 'eine Challenge mit Fremden'],
-            zusatz: ['etwas, das dich aus deiner Komfortzone holt', 'noch heute, nicht irgendwann', 'auch wenn es dir Respekt einflößt', 'ganz ohne es dir noch einmal zu überlegen', 'egal ob dich jemand begleitet oder nicht'],
+            zusatz: ['etwas, das dich aus deiner Komfortzone holt', 'noch heute, nicht irgendwann', 'auch wenn es dir Respekt einflößt', 'ganz ohne es dir noch einmal zu überlegen', 'egal ob dich jemand begleitet oder nicht', 'auch wenn du Angst vor Ablehnung hast', 'trotz Selbstzweifeln', 'als bewusster Schritt in unbekanntes Terrain', 'ohne dir eine Hintertür offenzuhalten', 'mit vollem Einsatz, nicht nur halbherzig'],
+            gefuehl: ['auch wenn sich dein Bauch dagegen sträubt', 'genau weil es dir unangenehm ist', 'weil Wachstum außerhalb der Komfortzone passiert', 'auch wenn du dich davor fürchtest', 'trotz der Stimme in deinem Kopf, die dich zurückhält', 'weil du es dir später danken wirst', 'auch wenn du niemanden kennst, der mitmacht', 'als mutigster Schritt dieser Woche'],
           },
         },
       ],
     };
     const DIFFICULTY_LABELS = { einfach: 'Einfach', mittel: 'Mittel', schwer: 'Schwer' };
-    const DIFFICULTY_XP = { einfach: 10, mittel: 20, schwer: 35 };
 
     // Laufzeit-Cache der bereits verwendeten Kombinationen pro Schwierigkeit (Set = schnelles has/add).
     // Wird beim Laden aus state.sidequest.usedCombos befüllt und nach jeder Generierung dorthin zurückgeschrieben.
@@ -1703,38 +1642,6 @@
       return rolled.text;
     }
 
-    // Level/XP tuning: growth is intentionally steep so leveling up takes real effort.
-    function xpForLevel(level) {
-      return Math.round(50 * Math.pow(level, 1.4)) + 50;
-    }
-    function levelInfoFromXp(totalXp) {
-      let level = 1;
-      let remaining = totalXp;
-      while (remaining >= xpForLevel(level)) {
-        remaining -= xpForLevel(level);
-        level++;
-      }
-      return { level, xpIntoLevel: remaining, xpNeeded: xpForLevel(level) };
-    }
-    const LEVEL_TITLES = [
-      { min: 1, title: 'Neuling', badge: '🌱' },
-      { min: 2, title: 'Anfänger', badge: '🔹' },
-      { min: 4, title: 'Anwärter', badge: '🥉' },
-      { min: 7, title: 'Geübter', badge: '🥈' },
-      { min: 10, title: 'Fortgeschritten', badge: '🥇' },
-      { min: 14, title: 'Experte', badge: '💎' },
-      { min: 18, title: 'Meister', badge: '👑' },
-      { min: 23, title: 'Großmeister', badge: '⚡' },
-      { min: 30, title: 'Legende', badge: '🌟' },
-    ];
-    function titleInfoForLevel(level) {
-      let result = LEVEL_TITLES[0];
-      for (const t of LEVEL_TITLES) {
-        if (level >= t.min) result = t;
-      }
-      return result;
-    }
-
     let state = {
       groups: [...DEFAULT_GROUPS],
       habits: [...DEFAULT_HABITS],
@@ -1744,7 +1651,6 @@
       activeGroup: 'Gesundheit',
       viewYear: null,
       viewMonth: null,  // 0-11
-      totalXp: 0,
       sidequest: {
         difficulty: 'mittel',
         current: null,   // { text, difficulty }
@@ -1769,7 +1675,6 @@
           state.checks = saved.checks || {};
           state.todos = saved.todos || [];
           state.notes = saved.notes || '';
-          state.totalXp = typeof saved.totalXp === 'number' ? saved.totalXp : 0;
           if (saved.sidequest) {
             state.sidequest = Object.assign(state.sidequest, saved.sidequest);
           }
@@ -1799,7 +1704,6 @@
           checks: state.checks,
           todos: state.todos,
           notes: state.notes,
-          totalXp: state.totalXp,
           sidequest: state.sidequest,
           settings: state.settings,
           activeGroup: state.activeGroup,
@@ -2062,19 +1966,6 @@
       document.querySelectorAll('#sqDiffTabs button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.diff === diff);
       });
-
-      renderXp();
-    }
-
-    function renderXp() {
-      const info = levelInfoFromXp(state.totalXp);
-      const titleInfo = titleInfoForLevel(info.level);
-      document.getElementById('xpBadgeIcon').textContent = titleInfo.badge;
-      document.getElementById('xpLevelText').textContent = `Level ${info.level} · ${titleInfo.title}`;
-      const pct = Math.min(100, Math.round((info.xpIntoLevel / info.xpNeeded) * 100));
-      document.getElementById('xpBarFill').style.width = pct + '%';
-      document.getElementById('xpNumbers').textContent = `${info.xpIntoLevel} / ${info.xpNeeded} XP`;
-      document.getElementById('settingsXpSummary').textContent = `Level ${info.level} · ${state.totalXp} XP gesamt`;
     }
 
     function switchSidequestDifficulty(diff) {
@@ -2103,11 +1994,6 @@
 
     function completeSidequest() {
       const diff = state.sidequest.difficulty;
-      const xpGain = DIFFICULTY_XP[diff] || 15;
-      const before = levelInfoFromXp(state.totalXp).level;
-      state.totalXp += xpGain;
-      const after = levelInfoFromXp(state.totalXp).level;
-
       state.sidequest.lastText = state.sidequest.current ? state.sidequest.current.text : null;
       state.sidequest.current = {
         difficulty: diff,
@@ -2115,21 +2001,6 @@
       };
       saveState();
       renderSidequest();
-
-      if (after > before) {
-        showLevelUpToast(after);
-      }
-    }
-
-    let levelupTimer = null;
-    function showLevelUpToast(newLevel) {
-      const titleInfo = titleInfoForLevel(newLevel);
-      document.getElementById('levelupBadgeIcon').textContent = titleInfo.badge;
-      document.getElementById('levelupSub').textContent = `Level ${newLevel} · ${titleInfo.title} erreicht`;
-      const toast = document.getElementById('levelupToast');
-      toast.classList.add('show');
-      clearTimeout(levelupTimer);
-      levelupTimer = setTimeout(() => toast.classList.remove('show'), 3200);
     }
 
     // ═══════════════════════════════════════════
@@ -2410,9 +2281,8 @@
         });
       });
 
-      // Sidequest default difficulty + xp summary
+      // Sidequest default difficulty
       document.getElementById('defaultDifficultySelect').value = state.settings.defaultDifficulty;
-      renderXp();
     }
 
     function openSettings() {
@@ -2448,11 +2318,6 @@
           renderHabitTable();
           renderSettingsLists();
         }
-      } else if (type === 'resetXp') {
-        state.totalXp = 0;
-        saveState();
-        renderXp();
-        renderSettingsLists();
       } else if (type === 'resetAll') {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(OLD_STORAGE_KEY);
@@ -2561,11 +2426,8 @@
       document.getElementById('defaultDifficultySelect').addEventListener('change', e => {
         switchSidequestDifficulty(e.target.value);
       });
-      document.getElementById('btnResetXp').addEventListener('click', () => {
-        openConfirm('XP zurücksetzen?', 'Dein gesamter XP- und Level-Fortschritt wird auf 0 zurückgesetzt.', { type: 'resetXp' });
-      });
       document.getElementById('btnResetAll').addEventListener('click', () => {
-        openConfirm('Alle Daten zurücksetzen?', 'Gewohnheiten, Gruppen, Häkchen, To-Dos, Notizen, XP und Level werden unwiderruflich gelöscht.', { type: 'resetAll' });
+        openConfirm('Alle Daten zurücksetzen?', 'Gewohnheiten, Gruppen, Häkchen, To-Dos, Notizen und der Sidequest-Fortschritt werden unwiderruflich gelöscht.', { type: 'resetAll' });
       });
 
       // Confirm modal
