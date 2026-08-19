@@ -947,11 +947,21 @@
       <div class="card">
         <div class="habit-header">
           <h2>Gewohnheiten</h2>
-          <div class="month-nav">
+          <div class="month-nav" id="monthNav">
             <button id="prevMonth" aria-label="Vorheriger Monat">‹</button>
             <span class="month-label" id="monthLabel">–</span>
             <button id="nextMonth" aria-label="Nächster Monat">›</button>
           </div>
+          <div class="month-nav" id="weekNav" style="display:none;">
+            <button id="prevWeek" aria-label="Vorherige Woche">‹</button>
+            <span class="month-label" id="weekLabel">–</span>
+            <button id="nextWeek" aria-label="Nächste Woche">›</button>
+          </div>
+        </div>
+
+        <div class="group-tabs" id="viewModeTabs">
+          <button type="button" class="group-tab" data-view="month">Monat</button>
+          <button type="button" class="group-tab" data-view="week">Woche</button>
         </div>
 
         <div class="group-tabs" id="groupTabs"></div>
@@ -1677,6 +1687,7 @@
         colorTheme: 'grau',
         animations: true,
         defaultDifficulty: 'mittel',
+        viewMode: 'month', // 'month' | 'week' – welche Ansicht der Habit-Tabelle aktiv ist
       },
     };
 
@@ -1743,6 +1754,37 @@
 
     function daysInMonth(y, m) {
       return new Date(y, m + 1, 0).getDate();
+    }
+
+    // Liefert die 7 Tage (Montag bis Sonntag) der Woche, in der referenceDate liegt.
+    function getWeekDates(referenceDate) {
+      const ref = new Date(referenceDate);
+      ref.setHours(0, 0, 0, 0);
+      const dayOfWeek = ref.getDay(); // 0 = Sonntag, 1 = Montag, ..., 6 = Samstag
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(ref);
+      monday.setDate(ref.getDate() + diffToMonday);
+
+      const week = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        week.push(d);
+      }
+      return week;
+    }
+
+    // Formatiert den Zeitraum einer Woche (z. B. "17.–23. Aug 2026") anhand des
+    // gespeicherten Montags-Datumsschlüssels in state.currentWeekStart.
+    function formatWeekLabel(weekStartKey) {
+      const [y, m, d] = weekStartKey.split('-').map(Number);
+      const monday = new Date(y, m - 1, d);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      if (monday.getMonth() === sunday.getMonth()) {
+        return `${monday.getDate()}.–${sunday.getDate()}. ${MONTH_SHORT[sunday.getMonth()]} ${sunday.getFullYear()}`;
+      }
+      return `${monday.getDate()}. ${MONTH_SHORT[monday.getMonth()]} – ${sunday.getDate()}. ${MONTH_SHORT[sunday.getMonth()]} ${sunday.getFullYear()}`;
     }
 
     // Liest die erledigten Tage einer Gewohnheit aus state.checks (derselbe Datenbestand,
@@ -1834,6 +1876,29 @@
           renderHabitTable();
         });
       });
+    }
+
+    // Schaltet zwischen Monats- und Wochenansicht um: aktualisiert die Tab-Markierung,
+    // blendet Monats- bzw. Wochen-Navigation ein/aus und aktualisiert das Wochen-Label.
+    // Das eigentliche Rendering der Wochentabelle folgt in einem separaten Schritt.
+    function renderViewModeUI() {
+      const mode = state.settings.viewMode === 'week' ? 'week' : 'month';
+      document.querySelectorAll('#viewModeTabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === mode);
+      });
+      document.getElementById('monthNav').style.display = mode === 'month' ? 'flex' : 'none';
+      document.getElementById('weekNav').style.display = mode === 'week' ? 'flex' : 'none';
+      document.getElementById('weekLabel').textContent = formatWeekLabel(state.currentWeekStart);
+    }
+
+    // Blättert die angezeigte Woche um `days` Tage weiter (±7 für vor/zurück).
+    function shiftCurrentWeek(days) {
+      const [y, m, d] = state.currentWeekStart.split('-').map(Number);
+      const monday = new Date(y, m - 1, d);
+      monday.setDate(monday.getDate() + days);
+      state.currentWeekStart = dateKey(monday.getFullYear(), monday.getMonth(), monday.getDate());
+      renderViewModeUI();
+      // TODO: Wochentabelle neu rendern, sobald das Wochen-Rendering implementiert ist.
     }
 
     // Baut das Streak-Badge (🔥 currentStreak, Rekord als Tooltip) für eine einzelne Gewohnheit.
@@ -2448,6 +2513,8 @@
       const now = new Date();
       state.viewYear = now.getFullYear();
       state.viewMonth = now.getMonth();
+      const thisMonday = getWeekDates(now)[0];
+      state.currentWeekStart = dateKey(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate());
 
       applyAccentTheme(state.settings.accentTheme);
       applyColorTheme(state.settings.colorTheme);
@@ -2456,6 +2523,7 @@
 
       renderGroupTabs();
       renderHabitTable();
+      renderViewModeUI();
       renderTodos();
       renderNotes();
       renderSidequest();
@@ -2474,6 +2542,17 @@
         if (state.viewMonth > 11) { state.viewMonth = 0; state.viewYear++; }
         renderHabitTable();
       });
+
+      // Monat/Woche-Umschalter
+      document.querySelectorAll('#viewModeTabs button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.settings.viewMode = btn.dataset.view;
+          saveState();
+          renderViewModeUI();
+        });
+      });
+      document.getElementById('prevWeek').addEventListener('click', () => shiftCurrentWeek(-7));
+      document.getElementById('nextWeek').addEventListener('click', () => shiftCurrentWeek(7));
 
       // Year view
       document.getElementById('btnYear').addEventListener('click', showYearView);
