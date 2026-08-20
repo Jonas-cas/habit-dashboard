@@ -153,6 +153,55 @@
       margin-bottom: 12px;
     }
 
+    /* ─── Widget-Reihenfolge per Drag & Drop ─── */
+    .widget-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .widget-title-group .card-title {
+      margin-bottom: 0;
+    }
+    .widget-title-group-standalone {
+      margin-bottom: 12px;
+    }
+    .drag-handle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      flex-shrink: 0;
+      border-radius: 7px;
+      color: var(--text-muted);
+      font-size: 1rem;
+      line-height: 1;
+      letter-spacing: -2px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .drag-handle:hover {
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+    [data-widget-id] {
+      transition: opacity 0.15s, outline-color 0.15s;
+    }
+    [data-widget-id].widget-dragging {
+      opacity: 0.45;
+    }
+    [data-widget-id].widget-drag-over {
+      outline: 2px dashed var(--accent);
+      outline-offset: -2px;
+      background: var(--bg-card-hover);
+    }
+
     /* ─── Sidequest card ─── */
     .sq-top {
       display: flex;
@@ -228,11 +277,16 @@
     .habit-header h2 {
       font-size: 1.15rem;
       font-weight: 650;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .month-nav {
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-shrink: 0;
     }
     .month-nav button {
       width: 34px;
@@ -1098,9 +1152,12 @@
     <!-- DETAIL VIEW -->
     <div class="detail-view" id="detailView">
       <!-- Sidequest -->
-      <div class="card sidequest-card">
+      <div class="card sidequest-card" data-widget-id="sidequest">
         <div class="sq-top">
-          <div class="card-title">Tägliche Sidequest</div>
+          <div class="widget-title-group">
+            <span class="drag-handle" draggable="true" data-widget-handle="sidequest" aria-label="Widget verschieben" title="Ziehen zum Verschieben">⋮⋮</span>
+            <div class="card-title">Tägliche Sidequest</div>
+          </div>
           <span class="sq-diff-badge" id="sqDiffBadge">Mittel</span>
         </div>
 
@@ -1119,9 +1176,12 @@
       </div>
 
       <!-- Habit Tracker -->
-      <div class="card">
+      <div class="card" data-widget-id="habits">
         <div class="habit-header">
-          <h2>Gewohnheiten</h2>
+          <div class="widget-title-group">
+            <span class="drag-handle" draggable="true" data-widget-handle="habits" aria-label="Widget verschieben" title="Ziehen zum Verschieben">⋮⋮</span>
+            <h2>Gewohnheiten</h2>
+          </div>
           <div class="month-nav" id="monthNav">
             <button id="prevMonth" aria-label="Vorheriger Monat">‹</button>
             <span class="month-label" id="monthLabel">–</span>
@@ -1181,8 +1241,11 @@
       </div>
 
       <!-- To-Dos -->
-      <div class="card">
-        <div class="card-title">To-Dos</div>
+      <div class="card" data-widget-id="todos">
+        <div class="widget-title-group widget-title-group-standalone">
+          <span class="drag-handle" draggable="true" data-widget-handle="todos" aria-label="Widget verschieben" title="Ziehen zum Verschieben">⋮⋮</span>
+          <div class="card-title">To-Dos</div>
+        </div>
         <div class="todo-input-row">
           <input type="text" id="todoInput" placeholder="Neues To-Do…" maxlength="120" />
           <button class="btn btn-primary btn-sm" id="btnAddTodo">+</button>
@@ -1191,8 +1254,11 @@
       </div>
 
       <!-- Notes -->
-      <div class="card">
-        <div class="card-title">Notizen</div>
+      <div class="card" data-widget-id="notes">
+        <div class="widget-title-group widget-title-group-standalone">
+          <span class="drag-handle" draggable="true" data-widget-handle="notes" aria-label="Widget verschieben" title="Ziehen zum Verschieben">⋮⋮</span>
+          <div class="card-title">Notizen</div>
+        </div>
         <div class="group-tabs" id="notesModeTabs">
           <button type="button" class="group-tab active" data-mode="edit">Bearbeiten</button>
           <button type="button" class="group-tab" data-mode="preview">Vorschau</button>
@@ -1354,6 +1420,18 @@
     ];
 
     const EMOJIS = ['✅','💧','🏃','😴','🧘','🥗','📚','🧹','💪','🎯','🧠','✍️','🎵','🌿','☀️','🛁','🚶','🛏️','🍎','🦷','👁️','🧊','🔥','⚡','🌱','🧩','🎮','📝','🗓️','💡'];
+
+    // Reihenfolge der Haupt-Widgets (Statistik ist Teil des "habits"-Widgets, kein eigenes).
+    const DEFAULT_WIDGET_ORDER = ['sidequest', 'habits', 'todos', 'notes'];
+
+    // Stellt sicher, dass widgetOrder immer genau die bekannten Widget-IDs enthält – fehlende
+    // IDs (z. B. nach einem Update oder aus altem localStorage) werden hinten ergänzt, unbekannte
+    // IDs verworfen.
+    function normalizeWidgetOrder(order) {
+      const valid = (Array.isArray(order) ? order : []).filter(id => DEFAULT_WIDGET_ORDER.includes(id));
+      const missing = DEFAULT_WIDGET_ORDER.filter(id => !valid.includes(id));
+      return [...valid, ...missing];
+    }
 
     const ACCENT_THEMES = {
       grau:   { label: 'Grau',   accent: '#d8d8d4', dim: '#aeaeaa' },
@@ -1895,6 +1973,7 @@
         defaultDifficulty: 'mittel',
         viewMode: 'month', // 'month' | 'week' | 'stats' – welche Ansicht der Habit-Tabelle aktiv ist
         statsMode: 'month', // 'month' | 'year' – Sub-Ansicht innerhalb der Statistik
+        widgetOrder: [...DEFAULT_WIDGET_ORDER], // Reihenfolge der Haupt-Widgets, per Drag & Drop änderbar
       },
     };
 
@@ -1914,6 +1993,7 @@
           if (saved.settings) {
             state.settings = Object.assign(state.settings, saved.settings);
           }
+          state.settings.widgetOrder = normalizeWidgetOrder(state.settings.widgetOrder);
           if (saved.activeGroup && state.groups.includes(saved.activeGroup)) {
             state.activeGroup = saved.activeGroup;
           }
@@ -3039,6 +3119,137 @@
       renderTodos();
     }
 
+    // ═══════════════════════════════════════════
+    // WIDGET-REIHENFOLGE (Drag & Drop)
+    // ═══════════════════════════════════════════
+
+    // Ordnet die Widget-Container in #detailView gemäß state.settings.widgetOrder neu an.
+    // appendChild auf ein bereits im DOM vorhandenes Element VERSCHIEBT es nur (kein Klon),
+    // nacheinander in der gewünschten Reihenfolge aufgerufen ergibt das die neue Anordnung.
+    function applyWidgetOrder() {
+      const container = document.getElementById('detailView');
+      state.settings.widgetOrder.forEach(id => {
+        const el = container.querySelector(`[data-widget-id="${id}"]`);
+        if (el) container.appendChild(el);
+      });
+    }
+
+    // Verschiebt draggedId in state.settings.widgetOrder an die Position relativ zu targetId
+    // (davor oder danach), speichert und wendet die neue Reihenfolge im DOM an.
+    function reorderWidget(draggedId, targetId, insertAfter) {
+      if (!draggedId || draggedId === targetId) return;
+      const order = state.settings.widgetOrder.filter(id => id !== draggedId);
+      let toIndex = order.indexOf(targetId);
+      if (toIndex === -1) {
+        toIndex = order.length;
+      } else if (insertAfter) {
+        toIndex += 1;
+      }
+      order.splice(toIndex, 0, draggedId);
+      state.settings.widgetOrder = order;
+      saveState();
+      applyWidgetOrder();
+    }
+
+    // Verkabelt sowohl die native HTML5-Drag&Drop-API (Desktop-Browser) als auch einen
+    // manuellen Touch-Fallback (nötig, da iOS Safari dragstart/dragover für Touch-Gesten
+    // nicht zuverlässig auslöst). Beide Wege laufen am Ende auf dieselbe reorderWidget()-Logik.
+    function initWidgetDragAndDrop() {
+      const container = document.getElementById('detailView');
+      let draggedId = null;
+      let currentTargetEl = null;
+      let currentInsertAfter = false;
+
+      function clearDragOverStyling() {
+        container.querySelectorAll('.widget-drag-over').forEach(el => el.classList.remove('widget-drag-over'));
+        currentTargetEl = null;
+      }
+
+      function updateDropTarget(clientY, overEl) {
+        const widgetEl = overEl ? overEl.closest('[data-widget-id]') : null;
+        if (!widgetEl || widgetEl.dataset.widgetId === draggedId) return;
+        const rect = widgetEl.getBoundingClientRect();
+        const insertAfter = clientY > rect.top + rect.height / 2;
+        if (widgetEl !== currentTargetEl) {
+          clearDragOverStyling();
+          widgetEl.classList.add('widget-drag-over');
+          currentTargetEl = widgetEl;
+        }
+        currentInsertAfter = insertAfter;
+      }
+
+      // ── Native HTML5 Drag & Drop (Maus / Trackpad) ──
+      container.querySelectorAll('.drag-handle[draggable="true"]').forEach(handle => {
+        handle.addEventListener('dragstart', e => {
+          draggedId = handle.dataset.widgetHandle;
+          const widgetEl = handle.closest('[data-widget-id]');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', draggedId);
+          if (widgetEl) widgetEl.classList.add('widget-dragging');
+        });
+        handle.addEventListener('dragend', () => {
+          container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
+          clearDragOverStyling();
+          draggedId = null;
+        });
+      });
+
+      container.querySelectorAll('[data-widget-id]').forEach(widgetEl => {
+        widgetEl.addEventListener('dragover', e => {
+          if (!draggedId) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          updateDropTarget(e.clientY, widgetEl);
+        });
+        widgetEl.addEventListener('drop', e => {
+          if (!draggedId) return;
+          e.preventDefault();
+          const targetId = widgetEl.dataset.widgetId;
+          reorderWidget(draggedId, targetId, currentInsertAfter);
+          clearDragOverStyling();
+        });
+      });
+
+      // ── Touch-Fallback (iPhone/iOS Safari & andere mobile Browser) ──
+      container.querySelectorAll('.drag-handle').forEach(handle => {
+        let touchActive = false;
+
+        handle.addEventListener('touchstart', e => {
+          touchActive = true;
+          draggedId = handle.dataset.widgetHandle;
+          const widgetEl = handle.closest('[data-widget-id]');
+          if (widgetEl) widgetEl.classList.add('widget-dragging');
+        }, { passive: true });
+
+        handle.addEventListener('touchmove', e => {
+          if (!touchActive || !draggedId) return;
+          e.preventDefault(); // verhindert Scrollen der Seite während des Ziehens
+          const touch = e.touches[0];
+          const overEl = document.elementFromPoint(touch.clientX, touch.clientY);
+          updateDropTarget(touch.clientY, overEl);
+        }, { passive: false });
+
+        handle.addEventListener('touchend', () => {
+          if (!touchActive) return;
+          touchActive = false;
+          if (draggedId && currentTargetEl) {
+            const targetId = currentTargetEl.dataset.widgetId;
+            reorderWidget(draggedId, targetId, currentInsertAfter);
+          }
+          container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
+          clearDragOverStyling();
+          draggedId = null;
+        });
+
+        handle.addEventListener('touchcancel', () => {
+          touchActive = false;
+          container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
+          clearDragOverStyling();
+          draggedId = null;
+        });
+      });
+    }
+
     function init() {
       loadState();
       const now = new Date();
@@ -3054,6 +3265,9 @@
       applyColorTheme(state.settings.colorTheme);
       applyAnimationsSetting();
       updateDateBadge();
+
+      applyWidgetOrder();
+      initWidgetDragAndDrop();
 
       renderGroupTabs();
       renderHabitTable();
