@@ -2184,6 +2184,52 @@
       return { currentStreak, bestStreak };
     }
 
+    // Jahres-Heatmap eines Habits im GitHub-Contribution-Stil, aus demselben state.checks
+    // wie calculateStreak(). Wochen laufen Montag–Sonntag; die erste Woche beginnt am Montag
+    // vor oder am 1. Januar (bzw. genau am 1. Januar, falls der schon ein Montag ist), damit
+    // alle Wochenspalten sauber untereinander ausgerichtet sind (analog zur Montags-Logik in
+    // getWeekDates()). Tage außerhalb des Jahres (Auffüll-Tage der ersten/letzten Woche) sowie
+    // Tage in der Zukunft werden als null geführt statt als 0, damit sie sich in der späteren
+    // Darstellung von "nicht erledigt" unterscheiden lassen.
+    function getHabitYearHeatmap(habitId, year) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isCurrentYear = year === today.getFullYear();
+      const isFutureYear = year > today.getFullYear();
+
+      const jan1 = new Date(year, 0, 1);
+      const dec31 = new Date(year, 11, 31);
+      const mondayOffset = jan1.getDay() === 0 ? -6 : 1 - jan1.getDay();
+      const gridStart = new Date(year, 0, 1 + mondayOffset);
+
+      // Letzter Tag, der überhaupt einen 0/1-Wert bekommen kann: beim laufenden Jahr heute,
+      // bei einem vergangenen Jahr der 31.12., bei einem zukünftigen Jahr keiner (alles null).
+      const lastCountedDate = isFutureYear ? null : (isCurrentYear ? today : dec31);
+
+      const weeks = [];
+      let totalDone = 0;
+      let totalDays = 0;
+
+      const cursor = new Date(gridStart);
+      while (cursor <= dec31) {
+        const week = [];
+        for (let i = 0; i < 7; i++) {
+          if (cursor.getFullYear() !== year || !lastCountedDate || cursor > lastCountedDate) {
+            week.push(null);
+          } else {
+            const done = !!state.checks[dateKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()) + '_' + habitId];
+            week.push(done ? 1 : 0);
+            totalDays++;
+            if (done) totalDone++;
+          }
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        weeks.push(week);
+      }
+
+      return { weeks, totalDone, totalDays };
+    }
+
     // ═══════════════════════════════════════════
     // GRUPPENBASIERTE STATISTIK-CHARTS
     // ═══════════════════════════════════════════
