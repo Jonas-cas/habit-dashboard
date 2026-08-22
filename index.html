@@ -153,27 +153,41 @@
       margin-bottom: 12px;
     }
 
-    /* ─── Widget-Grid per Drag & Drop ─── */
+    /* ─── Widget-Grid per Drag & Drop + Resize ─── */
     .detail-view {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: 32px; /* siehe ROW_UNIT_PX in JS – 1 Zeilen-Schritt beim Resizen */
       gap: 14px;
-      align-items: start;
     }
     .detail-view .card {
       /* Grid-gap übernimmt den Abstand; ohne das gäbe es doppelten Abstand (gap + margin). */
       margin-bottom: 0;
+      /* Karte füllt ihre zugewiesene Grid-Fläche (colSpan x rowSpan) vollständig aus; Inhalt,
+         der nicht reinpasst, scrollt innerhalb der Karte statt das Grid zu sprengen. */
+      height: 100%;
+      overflow-y: auto;
+      position: relative; /* Bezugsrahmen für den absolut positionierten Resize-Griff */
     }
-    /* Unterhalb dieser Breite wird eine 2. Spalte für die vergleichsweise breiten Widgets
-       (Habit-Tabelle, Sidequest-Text) zu eng – dann lieber sauber einspaltig stapeln. */
+    /* Unterhalb dieser Breite werden mehrspaltige Anordnungen für die vergleichsweise breiten
+       Widgets (Habit-Tabelle, Sidequest-Text) zu eng – dann lieber sauber einspaltig stapeln,
+       mit natürlicher Höhe statt der festen Zeilenraster-/Scroll-Logik der Grid-Ansicht. */
     @media (max-width: 640px) {
       .detail-view {
         grid-template-columns: 1fr;
+        grid-auto-rows: auto;
       }
       .detail-view [data-widget-id],
       .widget-grid-placeholder {
         grid-column: 1 !important;
         grid-row: auto !important;
+      }
+      .detail-view .card {
+        height: auto;
+        overflow-y: visible;
+      }
+      .widget-resize-handle {
+        display: none;
       }
     }
 
@@ -227,6 +241,31 @@
       background: var(--bg-elevated);
       border: 2px dashed var(--accent-dim);
       border-radius: var(--radius);
+    }
+    /* Resize-Griff unten rechts an jedem Widget: dezente diagonale Streifen (klassisches
+       Resize-Symbol), deutlicher bei Hover/aktivem Ziehen. */
+    .widget-resize-handle {
+      position: absolute;
+      right: 2px;
+      bottom: 2px;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+      touch-action: none;
+      clip-path: polygon(100% 0, 100% 100%, 0 100%);
+      background-image: repeating-linear-gradient(
+        -45deg,
+        var(--text-muted) 0,
+        var(--text-muted) 1.5px,
+        transparent 1.5px,
+        transparent 4px
+      );
+      opacity: 0.45;
+      transition: opacity 0.15s;
+    }
+    .widget-resize-handle:hover,
+    .widget-resize-handle.resizing {
+      opacity: 0.9;
     }
 
     /* ─── Tages-Überblick (steht immer über den per Drag & Drop sortierbaren Widgets) ─── */
@@ -1490,6 +1529,7 @@
           <button class="btn btn-primary btn-sm" id="btnSqComplete">✓ Erledigt</button>
           <button class="btn btn-secondary btn-sm" id="btnSqSkip">⤼ Überspringen</button>
         </div>
+        <span class="widget-resize-handle" data-widget-resize="sidequest" aria-label="Größe ändern" title="Ziehen zum Vergrößern/Verkleinern"></span>
       </div>
 
       <!-- Habit Tracker -->
@@ -1554,6 +1594,7 @@
             <div class="stats-legend" id="statsLegend"></div>
           </div>
         </div>
+        <span class="widget-resize-handle" data-widget-resize="habits" aria-label="Größe ändern" title="Ziehen zum Vergrößern/Verkleinern"></span>
       </div>
 
       <!-- To-Dos -->
@@ -1584,6 +1625,7 @@
           </div>
         </div>
         <ul class="todo-list" id="todoList"></ul>
+        <span class="widget-resize-handle" data-widget-resize="todos" aria-label="Größe ändern" title="Ziehen zum Vergrößern/Verkleinern"></span>
       </div>
 
       <!-- Notes -->
@@ -1599,6 +1641,7 @@
         <textarea class="notes-area" id="notesArea" placeholder="Schreib hier frei drauf los… (**fett**, # Überschrift, - Liste)"></textarea>
         <div class="notes-preview" id="notesPreview" style="display:none;"></div>
         <div class="notes-hint">Wird automatisch gespeichert</div>
+        <span class="widget-resize-handle" data-widget-resize="notes" aria-label="Größe ändern" title="Ziehen zum Vergrößern/Verkleinern"></span>
       </div>
     </div>
 
@@ -1779,8 +1822,8 @@
           <div class="help-location">Notizen-Widget → Tab „Vorschau"</div>
         </li>
         <li class="help-row">
-          <div class="help-feature">Drag & Drop Reihenfolge</div>
-          <div class="help-location">⋮⋮-Griff links neben jedem Widget-Titel ziehen</div>
+          <div class="help-feature">Widgets verschieben/verkleinern</div>
+          <div class="help-location">⋮⋮-Griff zum Verschieben ziehen, kleiner Eck-Griff unten rechts zum Vergrößern/Verkleinern</div>
         </li>
         <li class="help-row">
           <div class="help-feature">Tages-Überblick</div>
@@ -1856,31 +1899,77 @@
     // Reihenfolge der Haupt-Widgets (Statistik ist Teil des "habits"-Widgets, kein eigenes).
     const DEFAULT_WIDGET_ORDER = ['sidequest', 'habits', 'todos', 'notes'];
 
-    // Anzahl Spalten im Widget-Grid. col/row jedes Eintrags in state.settings.widgetLayout
-    // werden immer aus einer laufenden Reihenfolge abgeleitet (row-major: Index -> col/row) –
-    // das Grid ist damit zwar frei ziehbar, bleibt dabei aber immer lückenlos gepackt, ähnlich
-    // wie z. B. beim Umsortieren von App-Icons auf einem Homescreen.
-    const GRID_COLS = 2;
+    // Anzahl Spalten im Widget-Grid (auf 4 angehoben, damit colSpan in sinnvollen Schritten von
+    // Viertelbreite bis volle Breite reicht). col/row jedes Eintrags in state.settings.widgetLayout
+    // sind rein informativ und werden immer aus der Array-Reihenfolge abgeleitet – die tatsächliche
+    // Platzierung im Grid übernimmt die native CSS-Grid-Auto-Platzierung anhand von DOM-Reihenfolge
+    // + colSpan/rowSpan (siehe applyWidgetLayout()), nicht diese Werte.
+    const GRID_COLS = 4;
+    // Ein Zeilen-Schritt in Pixeln (siehe .detail-view { grid-auto-rows: ... } in der CSS) –
+    // rowSpan eines Widgets * ROW_UNIT_PX ergibt (zzgl. Gaps) seine Mindesthöhe im Grid; Inhalt,
+    // der nicht reinpasst, scrollt innerhalb der Karte statt das Grid zu sprengen.
+    const ROW_UNIT_PX = 32;
+    const ROW_SPAN_MAX = 60;
 
-    function widgetSequenceToLayout(order) {
-      return order.map((id, i) => ({ id, col: i % GRID_COLS, row: Math.floor(i / GRID_COLS) }));
+    // Standardgröße pro Widget in Grid-Einheiten. colSpan 2 von 4 entspricht optisch genau der
+    // bisherigen 2-spaltigen Standardanordnung; rowSpan grob an die natürliche Inhaltshöhe
+    // angelehnt (Gewohnheiten-Tabelle deutlich höher als z. B. To-Dos).
+    const DEFAULT_WIDGET_SPANS = {
+      sidequest: { colSpan: 2, rowSpan: 9 },
+      habits: { colSpan: 2, rowSpan: 16 },
+      todos: { colSpan: 2, rowSpan: 6 },
+      notes: { colSpan: 2, rowSpan: 7 },
+    };
+
+    function clampColSpan(v) {
+      if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+      return Math.min(GRID_COLS, Math.max(1, Math.round(v)));
+    }
+    function clampRowSpan(v) {
+      if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+      return Math.min(ROW_SPAN_MAX, Math.max(1, Math.round(v)));
     }
 
-    const DEFAULT_WIDGET_LAYOUT = widgetSequenceToLayout(DEFAULT_WIDGET_ORDER);
+    function makeLayoutEntry(id, index, colSpan, rowSpan) {
+      const fallback = DEFAULT_WIDGET_SPANS[id];
+      return {
+        id,
+        col: index % GRID_COLS,
+        row: Math.floor(index / GRID_COLS),
+        colSpan: clampColSpan(colSpan) ?? fallback.colSpan,
+        rowSpan: clampRowSpan(rowSpan) ?? fallback.rowSpan,
+      };
+    }
+
+    const DEFAULT_WIDGET_LAYOUT = DEFAULT_WIDGET_ORDER.map((id, i) => makeLayoutEntry(id, i));
 
     // Stellt sicher, dass widgetLayout immer genau die bekannten Widget-IDs enthält (fehlende
-    // hinten ergänzt, unbekannte verworfen, Duplikate entfernt) und col/row lückenlos aus der
-    // Reihenfolge neu berechnet sind. Nimmt sowohl das neue Format (Array aus {id,...}) als auch
-    // das alte, rein lineare widgetOrder-Array (Array aus IDs) entgegen, für die Migration
-    // bestehender localStorage-Daten aus der vorherigen, eindimensionalen Drag&Drop-Version.
+    // hinten ergänzt, unbekannte verworfen, Duplikate entfernt), col/row lückenlos aus der
+    // Reihenfolge neu berechnet sind, und übernimmt dabei vorhandene colSpan/rowSpan-Werte statt
+    // sie auf die Standardgröße zurückzusetzen. Nimmt sowohl das neue Format (Array aus
+    // {id, colSpan, rowSpan, ...}) als auch das alte, rein lineare widgetOrder-Array (Array aus
+    // IDs) entgegen, für die Migration bestehender localStorage-Daten aus früheren Versionen.
     function normalizeWidgetLayout(layout) {
+      const spansById = {};
       const rawOrder = (Array.isArray(layout) ? layout : [])
-        .map(item => (typeof item === 'string' ? item : item && item.id))
+        .map(item => {
+          if (typeof item === 'string') return item;
+          if (item && DEFAULT_WIDGET_ORDER.includes(item.id)) {
+            spansById[item.id] = { colSpan: item.colSpan, rowSpan: item.rowSpan };
+            return item.id;
+          }
+          return null;
+        })
         .filter(id => DEFAULT_WIDGET_ORDER.includes(id));
+
       const order = [];
       rawOrder.forEach(id => { if (!order.includes(id)) order.push(id); });
       DEFAULT_WIDGET_ORDER.forEach(id => { if (!order.includes(id)) order.push(id); });
-      return widgetSequenceToLayout(order);
+
+      return order.map((id, i) => {
+        const saved = spansById[id] || {};
+        return makeLayoutEntry(id, i, saved.colSpan, saved.rowSpan);
+      });
     }
 
     const ACCENT_THEMES = {
@@ -3972,37 +4061,44 @@
     }
 
     // ═══════════════════════════════════════════
-    // WIDGET-GRID (Drag & Drop)
+    // WIDGET-GRID (Drag & Drop + Resize)
     // ═══════════════════════════════════════════
     const WIDGET_PLACEHOLDER = '__placeholder__';
 
-    // Liefert die aktuell gespeicherte Reihenfolge als flaches Array von Widget-IDs
-    // (row-major: erst nach row, dann nach col sortiert).
+    // Liefert die aktuell gespeicherte Reihenfolge als flaches Array von Widget-IDs, in der
+    // Array-Reihenfolge von state.settings.widgetLayout (col/row sind rein informativ).
     function getWidgetSequence() {
-      return state.settings.widgetLayout
-        .slice()
-        .sort((a, b) => (a.row - b.row) || (a.col - b.col))
-        .map(w => w.id);
+      return state.settings.widgetLayout.map(w => w.id);
+    }
+
+    function getWidgetLayoutEntry(id) {
+      return state.settings.widgetLayout.find(w => w.id === id);
     }
 
     // Ordnet die Widget-Container in #detailView gemäß state.settings.widgetLayout neu an:
-    // appendChild in Reihenfolge sorgt für die passende DOM-Reihenfolge (wichtig als Fallback
-    // für die einspaltige Ansicht auf schmalen Bildschirmen), grid-column/-row fürs 2-spaltige Grid.
+    // appendChild in Reihenfolge bestimmt die DOM-Reihenfolge, die wiederum zusammen mit
+    // grid-column/-row: span (statt fester Start-Positionen) die native CSS-Grid-Auto-Platzierung
+    // treibt. Der Browser übernimmt damit automatisch das "Drumherum-Fließen" um unterschiedlich
+    // große Widgets, inkl. Zeilenumbruch, wenn ein Widget nicht mehr in die aktuelle Zeile passt.
     function applyWidgetLayout() {
       const container = document.getElementById('detailView');
-      getWidgetSequence().forEach((id, i) => {
-        const el = container.querySelector(`[data-widget-id="${id}"]`);
+      state.settings.widgetLayout.forEach(w => {
+        const el = container.querySelector(`[data-widget-id="${w.id}"]`);
         if (!el) return;
         container.appendChild(el);
-        el.style.gridColumn = String((i % GRID_COLS) + 1);
-        el.style.gridRow = String(Math.floor(i / GRID_COLS) + 1);
+        el.style.gridColumn = 'span ' + (clampColSpan(w.colSpan) ?? DEFAULT_WIDGET_SPANS[w.id].colSpan);
+        el.style.gridRow = 'span ' + (clampRowSpan(w.rowSpan) ?? DEFAULT_WIDGET_SPANS[w.id].rowSpan);
       });
     }
 
     // Übernimmt eine neue Reihenfolge (Array von Widget-IDs) als state.settings.widgetLayout,
-    // speichert und wendet sie im DOM/Grid an.
+    // behält dabei die jeweils aktuelle colSpan/rowSpan jedes Widgets bei, speichert und wendet
+    // die neue Anordnung im DOM/Grid an.
     function saveWidgetSequence(sequence) {
-      state.settings.widgetLayout = widgetSequenceToLayout(sequence);
+      state.settings.widgetLayout = sequence.map((id, i) => {
+        const existing = getWidgetLayoutEntry(id);
+        return makeLayoutEntry(id, i, existing && existing.colSpan, existing && existing.rowSpan);
+      });
       saveState();
       applyWidgetLayout();
     }
@@ -4060,15 +4156,13 @@
         }, 16);
       }
 
-      // Positioniert alle realen Widgets + den Platzhalter gemäß dragSequence im Grid
-      // (grid-column/-row) – ruft dadurch live ein "Zur-Seite-Rücken" der anderen Widgets hervor,
-      // ohne dass währenddessen etwas aus dem DOM entfernt/neu eingefügt werden muss.
+      // Hängt Platzhalter + reale Widgets gemäß dragSequence im DOM neu ein (appendChild in
+      // Reihenfolge) – die CSS-Grid-Auto-Platzierung reflowt daraufhin selbstständig um sie herum,
+      // das ist das live "Zur-Seite-Rücken" der anderen Widgets während des Ziehens.
       function applySequencePositions() {
-        dragSequence.forEach((id, i) => {
+        dragSequence.forEach(id => {
           const el = id === WIDGET_PLACEHOLDER ? placeholderEl : container.querySelector(`[data-widget-id="${id}"]`);
-          if (!el) return;
-          el.style.gridColumn = String((i % GRID_COLS) + 1);
-          el.style.gridRow = String(Math.floor(i / GRID_COLS) + 1);
+          if (el) container.appendChild(el);
         });
       }
 
@@ -4111,7 +4205,10 @@
 
         placeholderEl = document.createElement('div');
         placeholderEl.className = 'widget-grid-placeholder';
-        placeholderEl.style.minHeight = rect.height + 'px';
+        // Platzhalter bekommt dieselbe Spannweite wie das gezogene Widget, damit die
+        // freigewordene Zielposition in der passenden Größe markiert wird.
+        placeholderEl.style.gridColumn = draggedEl.style.gridColumn;
+        placeholderEl.style.gridRow = draggedEl.style.gridRow;
         container.appendChild(placeholderEl);
 
         draggedEl.classList.add('widget-dragging-grid');
@@ -4135,8 +4232,6 @@
         draggedEl.style.width = '';
         draggedEl.style.left = '';
         draggedEl.style.top = '';
-        draggedEl.style.gridColumn = '';
-        draggedEl.style.gridRow = '';
       }
 
       function endDrag() {
@@ -4191,6 +4286,61 @@
       });
     }
 
+    // Verkabelt den Resize-Griff (unten rechts an jedem Widget) ebenfalls per Pointer Events.
+    // Zieh-Delta in Pixeln wird anhand der tatsächlichen Spaltenbreite bzw. ROW_UNIT_PX in ganze
+    // Grid-Schritte umgerechnet (kein Pixel-genaues Skalieren) und sofort live als colSpan/rowSpan
+    // auf das Widget angewendet; erst beim Loslassen wird gespeichert. Da colSpan/rowSpan über
+    // grid-column/-row: span in die native Grid-Auto-Platzierung einfließen, ordnen sich andere
+    // Widgets bei einer Größenänderung automatisch neu an (z. B. das nächste rutscht eine Zeile
+    // tiefer) – ganz ohne eigene Kollisionslogik.
+    function initWidgetResize() {
+      const container = document.getElementById('detailView');
+
+      container.querySelectorAll('.widget-resize-handle').forEach(handle => {
+        handle.addEventListener('pointerdown', e => {
+          if (e.button > 0) return;
+          const widgetEl = handle.closest('[data-widget-id]');
+          const entry = widgetEl && getWidgetLayoutEntry(widgetEl.dataset.widgetId);
+          if (!entry) return;
+          e.preventDefault();
+          e.stopPropagation(); // nicht gleichzeitig als Widget-Verschieben interpretieren
+
+          const containerRect = container.getBoundingClientRect();
+          const gapPx = parseFloat(getComputedStyle(container).columnGap) || 0;
+          const colUnitPx = (containerRect.width - gapPx * (GRID_COLS - 1)) / GRID_COLS + gapPx;
+          const rowUnitPx = ROW_UNIT_PX + gapPx;
+
+          const startColSpan = entry.colSpan;
+          const startRowSpan = entry.rowSpan;
+          const startX = e.clientX;
+          const startY = e.clientY;
+
+          handle.classList.add('resizing');
+
+          const onMove = ev => {
+            ev.preventDefault();
+            const deltaCol = Math.round((ev.clientX - startX) / colUnitPx);
+            const deltaRow = Math.round((ev.clientY - startY) / rowUnitPx);
+            entry.colSpan = clampColSpan(startColSpan + deltaCol);
+            entry.rowSpan = clampRowSpan(startRowSpan + deltaRow);
+            widgetEl.style.gridColumn = 'span ' + entry.colSpan;
+            widgetEl.style.gridRow = 'span ' + entry.rowSpan;
+          };
+          const finish = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', finish);
+            document.removeEventListener('pointercancel', finish);
+            handle.classList.remove('resizing');
+            saveState();
+            applyWidgetLayout();
+          };
+          document.addEventListener('pointermove', onMove, { passive: false });
+          document.addEventListener('pointerup', finish);
+          document.addEventListener('pointercancel', finish);
+        });
+      });
+    }
+
     function init() {
       loadState();
       generateRecurringTodos();
@@ -4208,6 +4358,7 @@
 
       applyWidgetLayout();
       initWidgetDragAndDrop();
+      initWidgetResize();
 
       renderGroupTabs();
       renderHabitTable();
