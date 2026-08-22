@@ -893,6 +893,68 @@
       opacity: 1;
       color: var(--danger);
     }
+    .todo-recur-badge {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-right: 4px;
+    }
+
+    .todo-recurrence-btn {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: 12px;
+      border: 1px solid var(--bg-elevated);
+      background: var(--bg-base);
+      color: var(--text-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .todo-recurrence-btn.active {
+      color: var(--accent);
+      border-color: var(--accent-dim);
+    }
+    .todo-recurrence-panel {
+      background: var(--bg-base);
+      border: 1px solid var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px 12px;
+      margin-bottom: 12px;
+    }
+    .todo-recurrence-panel .group-tabs {
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    .todo-weekday-tabs {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .weekday-toggle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .weekday-toggle.active {
+      background: var(--accent);
+      color: var(--bg-deep);
+    }
+    .weekday-toggle:hover:not(.active) {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
 
     /* ─── Notes ─── */
     .notes-area {
@@ -1360,7 +1422,24 @@
         </div>
         <div class="todo-input-row">
           <input type="text" id="todoInput" placeholder="Neues To-Do…" maxlength="120" />
+          <button type="button" class="todo-recurrence-btn" id="btnTodoRecurrence" title="Wiederholung" aria-label="Wiederholung">🔁</button>
           <button class="btn btn-primary btn-sm" id="btnAddTodo">+</button>
+        </div>
+        <div class="todo-recurrence-panel" id="todoRecurrencePanel" style="display:none;">
+          <div class="group-tabs" id="todoRecurrenceTabs">
+            <button type="button" class="group-tab active" data-recurrence="none">Keine Wiederholung</button>
+            <button type="button" class="group-tab" data-recurrence="daily">Täglich</button>
+            <button type="button" class="group-tab" data-recurrence="weekly">Wöchentlich</button>
+          </div>
+          <div class="todo-weekday-tabs" id="todoWeekdayTabs" style="display:none;">
+            <button type="button" class="weekday-toggle" data-day="MO">Mo</button>
+            <button type="button" class="weekday-toggle" data-day="TU">Di</button>
+            <button type="button" class="weekday-toggle" data-day="WE">Mi</button>
+            <button type="button" class="weekday-toggle" data-day="TH">Do</button>
+            <button type="button" class="weekday-toggle" data-day="FR">Fr</button>
+            <button type="button" class="weekday-toggle" data-day="SA">Sa</button>
+            <button type="button" class="weekday-toggle" data-day="SU">So</button>
+          </div>
         </div>
         <ul class="todo-list" id="todoList"></ul>
       </div>
@@ -1528,6 +1607,7 @@
       <p id="confirmText" style="color:var(--text-secondary);margin-bottom:16px;font-size:0.95rem;"></p>
       <div class="modal-actions">
         <button class="btn btn-secondary" id="cancelConfirm">Abbrechen</button>
+        <button class="btn btn-secondary" id="confirmSecondary" style="display:none;">Nur heute</button>
         <button class="btn btn-danger" id="confirmDelete">Löschen</button>
       </div>
     </div>
@@ -2091,7 +2171,7 @@
       groups: [...DEFAULT_GROUPS],
       habits: [...DEFAULT_HABITS],
       checks: {},       // "YYYY-MM-DD_habitId" -> true
-      todos: [],        // {id, text, done}
+      todos: [],        // {id, text, done, recurrence, recurrenceDays, lastGeneratedDate, recurringParentId, instanceDate} – siehe generateRecurringTodos()
       notes: '',
       activeGroup: 'Gesundheit',
       viewYear: null,
@@ -2641,6 +2721,10 @@
 
     const WEEKDAY_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+    // 2-Buchstaben-Wochentagscodes für wiederkehrende To-Dos (recurrenceDays), Index = Date.getDay()
+    // (0 = Sonntag). Angelehnt an die iCal-RRULE-BYDAY-Konvention (MO, TU, WE, TH, FR, SA, SU).
+    const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
     function renderWeekTable() {
       document.getElementById('weekLabel').textContent = formatWeekLabel(state.currentWeekStart);
 
@@ -2944,21 +3028,83 @@
     }
 
     // ═══════════════════════════════════════════
+    // WIEDERKEHRENDE TO-DOS
+    // ═══════════════════════════════════════════
+    // Prüft alle To-Do-"Vorlagen" (recurrence !== null) und legt für jede, die heute fällig ist
+    // (täglich immer, wöchentlich nur an den gewählten Wochentagen) eine neue, unerledigte
+    // Tages-Instanz an – aber nur, falls für heute noch keine existiert (weder offen noch schon
+    // erledigt; darum wird die tatsächliche Existenz geprüft, nicht nur lastGeneratedDate).
+    // Die Vorlage selbst bleibt dabei unverändert und wird nie als erledigt markiert – nur
+    // lastGeneratedDate wird aktualisiert. Gedacht zum Aufruf beim App-Start und bei einem
+    // Tageswechsel während die App offen bleibt (Verkabelung folgt in einem späteren Schritt).
+    function generateRecurringTodos() {
+      const today = todayStr();
+      const todayCode = WEEKDAY_CODES[new Date().getDay()];
+      let changed = false;
+
+      state.todos.forEach(template => {
+        if (!template.recurrence) return; // keine Vorlage, sondern ein normales/generiertes To-Do
+
+        const isDue = template.recurrence === 'daily'
+          || (template.recurrence === 'weekly' && (template.recurrenceDays || []).includes(todayCode));
+        if (!isDue) return;
+
+        const hasTodayInstance = state.todos.some(t =>
+          t.recurringParentId === template.id && t.instanceDate === today
+        );
+        if (hasTodayInstance) return;
+
+        state.todos.push({
+          id: uid(),
+          text: template.text,
+          done: false,
+          recurrence: null,
+          recurrenceDays: null,
+          lastGeneratedDate: null,
+          recurringParentId: template.id,
+          instanceDate: today,
+        });
+        template.lastGeneratedDate = today;
+        changed = true;
+      });
+
+      if (changed) saveState();
+      return changed;
+    }
+
+    // ═══════════════════════════════════════════
     // RENDER: TODOS & NOTES
     // ═══════════════════════════════════════════
+    // Entfernt genau ein To-Do ohne Rückfrage – der normale Löschpfad für einmalige To-Dos
+    // und für einzelne generierte Instanzen (recurrence === null). Für "Vorlagen" (recurrence
+    // !== null) läuft das Löschen stattdessen über den Bestätigungs-Dialog, siehe .todo-del
+    // Klick-Handler unten.
+    function deleteTodoById(id) {
+      state.todos = state.todos.filter(x => x.id !== id);
+      saveState();
+      renderTodos();
+      renderDailySummary();
+    }
+
     function renderTodos() {
       const list = document.getElementById('todoList');
       if (state.todos.length === 0) {
         list.innerHTML = '<li class="empty-hint" style="padding:12px 0;">Keine To-Dos</li>';
         return;
       }
-      list.innerHTML = state.todos.map(t => `
-        <li class="todo-item ${t.done ? 'done' : ''}" data-id="${t.id}">
-          <div class="todo-check" data-id="${t.id}"></div>
-          <span class="todo-text">${escapeHtml(t.text)}</span>
+      list.innerHTML = state.todos.map(t => {
+        // Vorlagen (recurrence !== null) bekommen bewusst KEINE Checkbox – sie sollen nie
+        // selbst als erledigt markiert werden können, nur ihre generierten Instanzen.
+        const isTemplate = !!t.recurrence;
+        const showBadge = isTemplate || !!t.recurringParentId;
+        const checkHtml = isTemplate ? '' : `<div class="todo-check" data-id="${t.id}"></div>`;
+        const badgeHtml = showBadge ? '<span class="todo-recur-badge" title="Wiederholt sich">🔁</span>' : '';
+        return `<li class="todo-item ${t.done ? 'done' : ''} ${isTemplate ? 'is-template' : ''}" data-id="${t.id}">
+          ${checkHtml}
+          <span class="todo-text">${badgeHtml}${escapeHtml(t.text)}</span>
           <button class="todo-del" data-id="${t.id}" title="Löschen">×</button>
-        </li>
-      `).join('');
+        </li>`;
+      }).join('');
 
       list.querySelectorAll('.todo-check').forEach(el => {
         el.addEventListener('click', () => {
@@ -2968,10 +3114,23 @@
       });
       list.querySelectorAll('.todo-del').forEach(el => {
         el.addEventListener('click', () => {
-          state.todos = state.todos.filter(x => x.id !== el.dataset.id);
-          saveState();
-          renderTodos();
-          renderDailySummary();
+          const id = el.dataset.id;
+          const t = state.todos.find(x => x.id === id);
+          if (t && t.recurrence) {
+            const todayInstance = state.todos.find(x => x.recurringParentId === t.id && x.instanceDate === todayStr());
+            openConfirm(
+              'Wiederholung löschen?',
+              `„${t.text}“ ist eine Wiederholung. Nur die heutige Instanz oder die komplette Wiederholung löschen?`,
+              { type: 'deleteTodoTemplate', id: t.id },
+              {
+                primaryLabel: 'Komplett löschen',
+                secondaryLabel: 'Nur heute',
+                secondaryAction: { type: 'deleteTodoToday', id: todayInstance ? todayInstance.id : null },
+              }
+            );
+          } else {
+            deleteTodoById(id);
+          }
         });
       });
     }
@@ -3292,11 +3451,25 @@
     // SETTINGS: lists + confirm actions
     // ═══════════════════════════════════════════
     let pendingAction = null; // { type, payload }
+    let pendingSecondaryAction = null; // { type, payload } – zweite, weniger destruktive Option (z. B. "Nur heute")
 
-    function openConfirm(title, text, action) {
+    // opts (optional): { primaryLabel, secondaryLabel, secondaryAction } – für den Standardfall
+    // (nur Abbrechen/Löschen, wie bisher) einfach weglassen. Wird secondaryLabel gesetzt, taucht
+    // ein dritter Button auf, der secondaryAction über executeSecondaryConfirmedAction() ausführt.
+    function openConfirm(title, text, action, opts) {
+      opts = opts || {};
       document.getElementById('confirmTitle').textContent = title;
       document.getElementById('confirmText').textContent = text;
+      document.getElementById('confirmDelete').textContent = opts.primaryLabel || 'Löschen';
       pendingAction = action;
+      pendingSecondaryAction = opts.secondaryAction || null;
+      const secondaryBtn = document.getElementById('confirmSecondary');
+      if (opts.secondaryLabel) {
+        secondaryBtn.textContent = opts.secondaryLabel;
+        secondaryBtn.style.display = '';
+      } else {
+        secondaryBtn.style.display = 'none';
+      }
       closeModal('modalSettings');
       openModal('modalConfirm');
     }
@@ -3415,9 +3588,30 @@
         localStorage.removeItem(OLD_STORAGE_KEY);
         window.location.reload();
         return;
+      } else if (type === 'deleteTodoTemplate') {
+        // Entfernt nur die Vorlage selbst. Bereits generierte Instanzen (erledigt oder offen,
+        // inkl. der heutigen) bleiben unangetastet im Verlauf – ohne Vorlage erzeugt
+        // generateRecurringTodos() für sie schlicht keine neuen Instanzen mehr.
+        deleteTodoById(id);
       }
 
       pendingAction = null;
+      pendingSecondaryAction = null;
+      closeModal('modalConfirm');
+    }
+
+    // Führt die zweite, weniger destruktive Option im Bestätigungs-Dialog aus (aktuell nur
+    // "Nur heute" beim Löschen einer To-Do-Vorlage) – siehe openConfirm()/pendingSecondaryAction.
+    function executeSecondaryConfirmedAction() {
+      if (!pendingSecondaryAction) { closeModal('modalConfirm'); return; }
+      const { type, id } = pendingSecondaryAction;
+
+      if (type === 'deleteTodoToday' && id) {
+        deleteTodoById(id);
+      }
+
+      pendingAction = null;
+      pendingSecondaryAction = null;
       closeModal('modalConfirm');
     }
 
@@ -3447,13 +3641,44 @@
     // ═══════════════════════════════════════════
     // INIT & EVENTS
     // ═══════════════════════════════════════════
+    // Transienter Auswahlzustand des Wiederholungs-Panels beim Anlegen eines neuen To-Dos –
+    // bewusst nicht Teil von state/localStorage, wird nach jedem addTodo() zurückgesetzt.
+    let newTodoRecurrence = 'none'; // 'none' | 'daily' | 'weekly'
+    let newTodoRecurrenceDays = [];
+
+    function resetTodoRecurrencePicker() {
+      newTodoRecurrence = 'none';
+      newTodoRecurrenceDays = [];
+      document.getElementById('todoRecurrencePanel').style.display = 'none';
+      document.querySelectorAll('#todoRecurrenceTabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.recurrence === 'none');
+      });
+      document.getElementById('todoWeekdayTabs').style.display = 'none';
+      document.querySelectorAll('.weekday-toggle').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('btnTodoRecurrence').classList.remove('active');
+    }
+
     function addTodo() {
       const input = document.getElementById('todoInput');
       const text = input.value.trim();
       if (!text) return;
-      state.todos.push({ id: uid(), text, done: false });
+      const recurrence = newTodoRecurrence === 'none' ? null : newTodoRecurrence;
+      state.todos.push({
+        id: uid(),
+        text,
+        done: false,
+        recurrence,
+        recurrenceDays: recurrence === 'weekly' ? [...newTodoRecurrenceDays] : null,
+        lastGeneratedDate: null,
+        recurringParentId: null,
+        instanceDate: null,
+      });
       input.value = '';
+      resetTodoRecurrencePicker();
       saveState();
+      // Erzeugt sofort die heutige Instanz, falls die neue Vorlage bereits heute fällig ist,
+      // statt erst auf den nächsten App-Start/Tageswechsel zu warten.
+      generateRecurringTodos();
       renderTodos();
       renderDailySummary();
     }
@@ -3591,6 +3816,7 @@
 
     function init() {
       loadState();
+      generateRecurringTodos();
       const now = new Date();
       state.viewYear = now.getFullYear();
       state.viewMonth = now.getMonth();
@@ -3615,8 +3841,13 @@
       renderSidequest();
       renderDailySummary();
 
-      // Keep the date badge and daily summary correct if the app stays open across midnight.
-      setInterval(() => { updateDateBadge(); renderDailySummary(); }, 60 * 1000);
+      // Keep the date badge, recurring-todo instances and daily summary correct if the app
+      // stays open across midnight.
+      setInterval(() => {
+        updateDateBadge();
+        if (generateRecurringTodos()) renderTodos();
+        renderDailySummary();
+      }, 60 * 1000);
 
       // Month nav
       document.getElementById('prevMonth').addEventListener('click', () => {
@@ -3715,8 +3946,10 @@
       document.getElementById('cancelConfirm').addEventListener('click', () => {
         closeModal('modalConfirm');
         pendingAction = null;
+        pendingSecondaryAction = null;
       });
       document.getElementById('confirmDelete').addEventListener('click', executeConfirmedAction);
+      document.getElementById('confirmSecondary').addEventListener('click', executeSecondaryConfirmedAction);
 
       // Close modals on overlay click
       document.querySelectorAll('.modal-overlay').forEach(ov => {
@@ -3729,6 +3962,33 @@
       document.getElementById('btnAddTodo').addEventListener('click', addTodo);
       document.getElementById('todoInput').addEventListener('keydown', e => {
         if (e.key === 'Enter') addTodo();
+      });
+
+      // Wiederholungs-Panel fürs Anlegen eines neuen To-Dos
+      document.getElementById('btnTodoRecurrence').addEventListener('click', () => {
+        const panel = document.getElementById('todoRecurrencePanel');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      });
+      document.querySelectorAll('#todoRecurrenceTabs button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          newTodoRecurrence = btn.dataset.recurrence;
+          document.querySelectorAll('#todoRecurrenceTabs button').forEach(b => {
+            b.classList.toggle('active', b === btn);
+          });
+          document.getElementById('todoWeekdayTabs').style.display = newTodoRecurrence === 'weekly' ? 'flex' : 'none';
+          document.getElementById('btnTodoRecurrence').classList.toggle('active', newTodoRecurrence !== 'none');
+        });
+      });
+      document.querySelectorAll('.weekday-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const day = btn.dataset.day;
+          if (newTodoRecurrenceDays.includes(day)) {
+            newTodoRecurrenceDays = newTodoRecurrenceDays.filter(d => d !== day);
+          } else {
+            newTodoRecurrenceDays.push(day);
+          }
+          btn.classList.toggle('active');
+        });
       });
 
       // Notes auto-save
