@@ -479,24 +479,88 @@
     }
 
     /* ─── Statistik-Ansicht ─── */
-    .stats-bar-row {
-      margin-bottom: 16px;
+    .stats-card {
+      background: var(--bg-elevated);
+      border-radius: 20px;
+      padding: 16px;
     }
-    .stats-bar-row:last-child {
-      margin-bottom: 0;
+    .stats-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
     }
-    .stats-bar-top {
+    .stats-group-title {
+      font-size: 1rem;
+      font-weight: 650;
+      color: var(--text-primary);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stats-period-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .stats-period-tabs {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .stats-avg-row {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin: 16px 0 12px;
+    }
+    .stats-avg-row strong {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    #statsChart {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .stats-chart-grid {
+      stroke: var(--bg-card);
+      stroke-width: 1;
+    }
+    .stats-chart-axis-y {
+      fill: var(--text-muted);
+      font-size: 7.5px;
+    }
+    .stats-line {
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .stats-legend {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .stats-legend-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 6px;
       gap: 8px;
     }
-    .stats-bar-label {
+    .stats-legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .stats-legend-label {
       display: flex;
       align-items: center;
-      gap: 7px;
-      font-size: 0.9rem;
+      gap: 6px;
+      font-size: 0.88rem;
       font-weight: 600;
       color: var(--text-primary);
       min-width: 0;
@@ -504,57 +568,20 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .stats-bar-pct {
-      font-size: 0.88rem;
+    .stats-legend-value {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.85rem;
       font-weight: 650;
       color: var(--text-secondary);
       font-variant-numeric: tabular-nums;
       flex-shrink: 0;
     }
-    .stats-bar-track {
-      height: 10px;
-      background: var(--bg-elevated);
-      border-radius: 20px;
-      overflow: hidden;
-    }
-    .stats-bar-fill {
-      height: 100%;
-      background: var(--accent);
-      border-radius: 20px;
-      transition: width 0.4s ease;
-    }
-
-    .stats-habit-picker {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 16px;
-    }
-
-    #statsLineChart {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-    .stats-chart-grid {
-      stroke: var(--bg-elevated);
-      stroke-width: 1;
-    }
-    .stats-chart-axis-y,
-    .stats-chart-axis-x {
-      fill: var(--text-secondary);
-      font-size: 7.5px;
-    }
-    .stats-chart-line {
-      stroke: var(--accent);
-      stroke-width: 2.5;
-      fill: none;
-      stroke-linejoin: round;
-      stroke-linecap: round;
-    }
-    .stats-chart-dot {
-      fill: var(--accent);
-    }
+    .stats-trend-up { color: var(--success); }
+    .stats-trend-down { color: var(--danger); }
+    .stats-trend-flat { color: var(--text-muted); }
 
     .habit-table .day-cell {
       text-align: left;
@@ -1221,16 +1248,6 @@
             <span class="month-label" id="weekLabel">–</span>
             <button id="nextWeek" aria-label="Nächste Woche">›</button>
           </div>
-          <div class="month-nav" id="statsMonthNav" style="display:none;">
-            <button id="prevStatsMonth" aria-label="Vorheriger Monat">‹</button>
-            <span class="month-label" id="statsMonthLabel">–</span>
-            <button id="nextStatsMonth" aria-label="Nächster Monat">›</button>
-          </div>
-          <div class="month-nav" id="statsYearNav" style="display:none;">
-            <button id="prevStatsYear" aria-label="Vorheriges Jahr">‹</button>
-            <span class="month-label" id="statsYearLabel">–</span>
-            <button id="nextStatsYear" aria-label="Nächstes Jahr">›</button>
-          </div>
         </div>
 
         <div class="group-tabs" id="viewModeTabs">
@@ -1253,18 +1270,27 @@
           <button class="btn btn-secondary btn-sm" id="btnAddGroup">+ Gruppe</button>
         </div>
 
-        <!-- Statistik-Ansicht: nutzt denselben Umschalt-Mechanismus wie Monat/Woche -->
+        <!-- Statistik-Ansicht: gruppenbasierte Liniendiagramme, siehe getGroupChartSeries() -->
         <div id="statsSection" style="display:none;">
-          <div class="group-tabs" id="statsModeTabs">
-            <button type="button" class="group-tab" data-statsmode="month">Monat</button>
-            <button type="button" class="group-tab" data-statsmode="year">Jahr</button>
-          </div>
+          <div class="group-tabs" id="statsGroupTabs"></div>
 
-          <div id="statsMonthView"></div>
+          <div class="stats-card">
+            <div class="stats-card-head">
+              <div>
+                <div class="stats-group-title" id="statsGroupTitle">–</div>
+                <div class="stats-period-label" id="statsPeriodLabel">–</div>
+              </div>
+              <div class="stats-period-tabs" id="statsPeriodTabs">
+                <button type="button" class="group-tab" data-statsmode="month">Monat</button>
+                <button type="button" class="group-tab" data-statsmode="year">Jahr</button>
+              </div>
+            </div>
 
-          <div id="statsYearView" style="display:none;">
-            <div class="stats-habit-picker" id="statsHabitPicker"></div>
-            <svg id="statsLineChart" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="stats-avg-row">Durchschnitt · <strong id="statsAvgValue">–%</strong></div>
+
+            <svg id="statsChart" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid meet"></svg>
+
+            <div class="stats-legend" id="statsLegend"></div>
           </div>
         </div>
       </div>
@@ -1437,6 +1463,11 @@
     // ═══════════════════════════════════════════
     const STORAGE_KEY = 'myDashboard_v2';
     const OLD_STORAGE_KEY = 'myDashboard_v1';
+
+    // Feste Farbpalette für die gruppenbasierten Statistik-Charts (siehe getGroupChartSeries).
+    // Wird pro Gruppe der Reihe nach an die Habits vergeben und wiederholt sich, falls eine
+    // Gruppe mehr Habits als Farben enthält.
+    const HABIT_CHART_COLORS = ['#7cc9a0', '#d1697a', '#c9a24a', '#5aa9e6', '#a889e8', '#5ec9c0'];
 
     const DEFAULT_GROUPS = ['Gesundheit', 'Alltag', 'Sonstiges'];
     const DEFAULT_HABITS = [
@@ -2153,46 +2184,93 @@
       return { currentStreak, bestStreak };
     }
 
-    // Erfüllungsquote einer Gewohnheit für einen einzelnen Monat, aus demselben
-    // state.checks-Datenbestand wie calculateStreak(). `month` ist 0-basiert (0 = Januar).
-    // gesamtTage zählt: alle Tage des Monats bis einschließlich heute (aktueller Monat),
-    // alle Tage des Monats (vergangener Monat), oder 0 (zukünftiger Monat).
-    function getMonthStats(habitId, year, month) {
-      const today = new Date();
-      const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
-      const isFutureMonth = year > today.getFullYear() || (year === today.getFullYear() && month > today.getMonth());
+    // ═══════════════════════════════════════════
+    // GRUPPENBASIERTE STATISTIK-CHARTS
+    // ═══════════════════════════════════════════
 
-      const gesamtTage = isFutureMonth ? 0 : (isCurrentMonth ? today.getDate() : daysInMonth(year, month));
-
-      let erledigt = 0;
-      for (let d = 1; d <= gesamtTage; d++) {
-        if (state.checks[dateKey(year, month, d) + '_' + habitId]) erledigt++;
-      }
-
-      const quote = gesamtTage > 0 ? erledigt / gesamtTage : 0;
-      return { erledigt, gesamtTage, quote };
+    // Anzahl der Tage aus Monat `m` (0-basiert), die bezogen auf refDate bereits "vergangen"
+    // sind: volle Monatslänge für Monate vor refDate.getMonth(), nur der Tag-Anteil von
+    // refDate selbst für dessen eigenen Monat, 0 für alles danach.
+    function daysElapsedInMonth(year, m, refDate) {
+      if (m < refDate.getMonth()) return daysInMonth(year, m);
+      if (m === refDate.getMonth()) return refDate.getDate();
+      return 0;
     }
 
-    // Erfüllungsquote einer Gewohnheit für alle 12 Monate eines Jahres, aus getMonthStats()
-    // zusammengesetzt. `monat` ist 0-basiert (0 = Januar, ... 11 = Dezember), analog zu
-    // state.viewMonth/MONTH_NAMES/MONTH_SHORT im restlichen Code.
-    function getYearStats(habitId, year) {
-      const months = [];
-      for (let m = 0; m < 12; m++) {
-        months.push({ monat: m, quote: getMonthStats(habitId, year, m).quote });
+    // Zählt, wie oft `habitId` in Monat `m` (0-basiert) an dessen ersten `days` Tagen erledigt wurde.
+    function countDoneInMonth(habitId, year, m, days) {
+      let done = 0;
+      for (let d = 1; d <= days; d++) {
+        if (state.checks[dateKey(year, m, d) + '_' + habitId]) done++;
       }
-      return months;
+      return done;
     }
 
-    // Erfüllungsquote aller vorhandenen Gewohnheiten für einen Monat, absteigend nach Quote
-    // sortiert (höchste zuerst), inkl. Name und Emoji für die spätere Anzeige.
-    function getAllHabitsMonthStats(year, month) {
-      return state.habits
-        .map(h => {
-          const stats = getMonthStats(h.id, year, month);
-          return { habitId: h.id, name: h.name, emoji: h.emoji, ...stats };
-        })
-        .sort((a, b) => b.quote - a.quote);
+    // Laufende Erfüllungsquote eines einzelnen Habits als Punktreihe { x, y }, Basis für
+    // getGroupChartSeries(). x=0 ist immer ein fester Startanker bei y=0 (Tag/Monat 0
+    // existiert nicht als reale Quote – Division durch 0), erst ab x=1 wird echt gerechnet.
+    //   period='month': x = Tag 0..aktueller Tag von refDate,
+    //                   y = erledigte Tage 1..x / x * 100.
+    //   period='year':  x = Monat 0..aktueller Monat von refDate,
+    //                   y = erledigte Tage seit Jahresbeginn bis einschl. Monat x /
+    //                       vergangene Tage seit Jahresbeginn bis einschl. Monat x * 100.
+    function getHabitChartPoints(habitId, period, refDate) {
+      const year = refDate.getFullYear();
+      const points = [{ x: 0, y: 0 }];
+
+      if (period === 'month') {
+        const dayCutoff = refDate.getDate();
+        const month = refDate.getMonth();
+        let done = 0;
+        for (let x = 1; x <= dayCutoff; x++) {
+          if (state.checks[dateKey(year, month, x) + '_' + habitId]) done++;
+          points.push({ x, y: (done / x) * 100 });
+        }
+      } else {
+        const monthCutoff = refDate.getMonth();
+        // Januar (Monat 0) fließt von Anfang an in die Kumulation "seit Jahresbeginn" ein,
+        // auch wenn der zugehörige Chart-Punkt x=0 fest auf y=0 steht (Startanker statt
+        // echtem Januar-Wert).
+        let daysTotal = daysElapsedInMonth(year, 0, refDate);
+        let doneTotal = countDoneInMonth(habitId, year, 0, daysTotal);
+        for (let x = 1; x <= monthCutoff; x++) {
+          const daysInThisMonth = daysElapsedInMonth(year, x, refDate);
+          doneTotal += countDoneInMonth(habitId, year, x, daysInThisMonth);
+          daysTotal += daysInThisMonth;
+          points.push({ x, y: daysTotal > 0 ? (doneTotal / daysTotal) * 100 : 0 });
+        }
+      }
+
+      return points;
+    }
+
+    // Baut die Chart-Datenreihen aller Habits einer Gruppe für die neue Statistik-Ansicht.
+    // groupId ist der Gruppenname (state.habits[].group ist ein einfacher String, siehe
+    // DEFAULT_GROUPS) – "groupId" wird hier nur als Parametername gemäß Aufgabenstellung
+    // verwendet, es gibt keine separate Gruppen-ID im Datenmodell.
+    // Jedem Habit wird der Reihe nach (innerhalb der Gruppe) eine feste Farbe aus
+    // HABIT_CHART_COLORS zugewiesen, die sich bei mehr Habits als Farben wiederholt.
+    function getGroupChartSeries(groupId, period, refDate) {
+      const groupHabits = state.habits.filter(h => h.group === groupId);
+
+      const habits = groupHabits.map((h, i) => {
+        const points = getHabitChartPoints(h.id, period, refDate);
+        const endValue = points[points.length - 1].y;
+        return {
+          id: h.id,
+          name: h.name,
+          emoji: h.emoji,
+          color: HABIT_CHART_COLORS[i % HABIT_CHART_COLORS.length],
+          points,
+          endValue,
+        };
+      });
+
+      const avg = habits.length > 0
+        ? habits.reduce((sum, h) => sum + h.endValue, 0) / habits.length
+        : 0;
+
+      return { habits, avg };
     }
 
     function uid() {
@@ -2300,13 +2378,6 @@
       document.getElementById('monthNav').style.display = mode === 'month' ? 'flex' : 'none';
       document.getElementById('weekNav').style.display = mode === 'week' ? 'flex' : 'none';
       document.getElementById('weekLabel').textContent = formatWeekLabel(state.currentWeekStart);
-
-      // Statistik hat eine eigene Monat/Jahr-Navigation; deren Sichtbarkeit steuert
-      // renderStatsPanel() im Detail. Außerhalb der Statistik bleibt sie immer verborgen.
-      if (mode !== 'stats') {
-        document.getElementById('statsMonthNav').style.display = 'none';
-        document.getElementById('statsYearNav').style.display = 'none';
-      }
 
       // Gruppen-Tabs, Tabelle und Habit-Aktionen gehören nur zu Monat/Woche;
       // die Statistik-Sektion nur zu 'stats' – sauberes Ein-/Ausblenden, kein doppeltes Rendering.
@@ -2485,117 +2556,115 @@
     // ═══════════════════════════════════════════
     // RENDER: STATISTIK
     // ═══════════════════════════════════════════
-    // Dispatcher, analog zu renderHabitTable(): schaltet je nach state.settings.statsMode
-    // zwischen Monats-Balken und Jahres-Liniendiagramm um (dieselbe Statistik-Sektion,
-    // kein doppeltes Rendering).
-    function renderStatsPanel() {
-      const mode = state.settings.statsMode === 'year' ? 'year' : 'month';
-      document.querySelectorAll('#statsModeTabs button').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.statsmode === mode);
-      });
-      document.getElementById('statsMonthNav').style.display = mode === 'month' ? 'flex' : 'none';
-      document.getElementById('statsYearNav').style.display = mode === 'year' ? 'flex' : 'none';
-      document.getElementById('statsMonthView').style.display = mode === 'month' ? 'block' : 'none';
-      document.getElementById('statsYearView').style.display = mode === 'year' ? 'block' : 'none';
-
-      if (mode === 'month') {
-        renderStatsMonthView();
-      } else {
-        renderStatsYearView();
-      }
-    }
-
-    // Monats-Ansicht: Erfüllungsquote aller Gewohnheiten als horizontale Balken.
-    function renderStatsMonthView() {
-      document.getElementById('statsMonthLabel').textContent = `${MONTH_NAMES[state.statsMonth]} ${state.statsYear}`;
-
-      const container = document.getElementById('statsMonthView');
-      const stats = getAllHabitsMonthStats(state.statsYear, state.statsMonth);
-
-      if (stats.length === 0) {
-        container.innerHTML = `<div class="empty-hint">Noch keine Gewohnheiten vorhanden.</div>`;
+    // Rendert die Gruppen-Tab-Leiste über der Statistik-Karte. Wählt beim ersten Aufruf
+    // bzw. wenn die zuletzt gewählte Gruppe nicht mehr existiert (umbenannt/gelöscht)
+    // automatisch die erste Gruppe. Analog zu renderGroupTabs() werden die Klick-Handler
+    // bei jedem Render neu angehängt.
+    function renderStatsGroupTabs() {
+      const el = document.getElementById('statsGroupTabs');
+      if (state.groups.length === 0) {
+        el.innerHTML = '';
+        state.statsGroup = null;
         return;
       }
-
-      container.innerHTML = stats.map(s => {
-        const pct = Math.round(s.quote * 100);
-        return `<div class="stats-bar-row">
-          <div class="stats-bar-top">
-            <span class="stats-bar-label"><span>${s.emoji}</span>${escapeHtml(s.name)}</span>
-            <span class="stats-bar-pct">${pct}%</span>
-          </div>
-          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
-        </div>`;
-      }).join('');
-    }
-
-    // Jahres-Ansicht: Habit-Auswahl + Liniendiagramm der 12 Monatsquoten des gewählten Habits.
-    function renderStatsYearView() {
-      document.getElementById('statsYearLabel').textContent = String(state.statsYear);
-
-      const picker = document.getElementById('statsHabitPicker');
-      const chart = document.getElementById('statsLineChart');
-
-      if (state.habits.length === 0) {
-        picker.innerHTML = '';
-        chart.innerHTML = '';
-        chart.style.display = 'none';
-        if (!document.getElementById('statsYearEmptyHint')) {
-          picker.insertAdjacentHTML('afterend', '<div class="empty-hint" id="statsYearEmptyHint">Noch keine Gewohnheiten vorhanden.</div>');
-        }
-        return;
+      if (!state.statsGroup || !state.groups.includes(state.statsGroup)) {
+        state.statsGroup = state.groups[0];
       }
-      document.getElementById('statsYearEmptyHint')?.remove();
-      chart.style.display = 'block';
-
-      if (!state.statsHabitId || !state.habits.some(h => h.id === state.statsHabitId)) {
-        state.statsHabitId = state.habits[0].id;
-      }
-
-      picker.innerHTML = state.habits.map(h =>
-        `<button type="button" class="group-tab ${h.id === state.statsHabitId ? 'active' : ''}" data-habit="${h.id}">${h.emoji} ${escapeHtml(h.name)}</button>`
+      el.innerHTML = state.groups.map(g =>
+        `<button type="button" class="group-tab ${g === state.statsGroup ? 'active' : ''}" data-group="${escapeHtml(g)}">${escapeHtml(g)}</button>`
       ).join('');
-      picker.querySelectorAll('button').forEach(btn => {
+      el.querySelectorAll('.group-tab').forEach(btn => {
         btn.addEventListener('click', () => {
-          state.statsHabitId = btn.dataset.habit;
-          renderStatsYearView();
+          if (btn.dataset.group === state.statsGroup) return;
+          state.statsGroup = btn.dataset.group;
+          renderStatsPanel();
         });
       });
-
-      renderStatsLineChart(state.statsHabitId, state.statsYear);
     }
 
-    // Zeichnet das Liniendiagramm der 12 Monatsquoten eines Habits als reines Inline-SVG
-    // (keine externe Chart-Library), ausschließlich mit den bestehenden CSS-Variablen gefärbt.
-    function renderStatsLineChart(habitId, year) {
-      const svg = document.getElementById('statsLineChart');
-      const data = getYearStats(habitId, year);
+    // Dispatcher: baut Gruppen-Tabs, Titel/Zeitraum-Label und Monat/Jahr-Umschalter, holt die
+    // Chart-Daten für die aktive Gruppe+Periode über getGroupChartSeries() und rendert Chart
+    // + Legende. Einziger Einstiegspunkt fürs Neuzeichnen der kompletten Statistik-Ansicht.
+    function renderStatsPanel() {
+      renderStatsGroupTabs();
 
+      const mode = state.settings.statsMode === 'year' ? 'year' : 'month';
+      document.querySelectorAll('#statsPeriodTabs button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.statsmode === mode);
+      });
+
+      document.getElementById('statsGroupTitle').textContent = state.statsGroup || 'Statistik';
+      document.getElementById('statsPeriodLabel').textContent = mode === 'year' ? 'Dieses Jahr' : 'Letzte 30 Tage';
+
+      const series = state.statsGroup
+        ? getGroupChartSeries(state.statsGroup, mode, new Date())
+        : { habits: [], avg: 0 };
+
+      document.getElementById('statsAvgValue').textContent = Math.round(series.avg) + '%';
+
+      renderStatsChart(series);
+      renderStatsLegend(series);
+    }
+
+    // Zeichnet die laufenden Erfüllungsquoten aller Habits einer Gruppe als reines Inline-SVG
+    // (keine externe Chart-Library) – dezente 0/50/100%-Gridlines mit Beschriftung links, pro
+    // Habit eine dünne, rund gekappte Linie in seiner zugewiesenen Farbe (siehe getGroupChartSeries).
+    function renderStatsChart(series) {
+      const svg = document.getElementById('statsChart');
       const width = 320, height = 170;
-      const padLeft = 30, padRight = 10, padTop = 10, padBottom = 22;
+      const padLeft = 28, padRight = 10, padTop = 10, padBottom = 10;
       const plotW = width - padLeft - padRight;
       const plotH = height - padTop - padBottom;
 
-      const points = data.map((d, i) => ({
-        x: padLeft + (i / 11) * plotW,
-        y: padTop + plotH - d.quote * plotH,
-      }));
-
-      const linePath = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-
-      const gridLines = [0, 0.5, 1].map(frac => {
+      const gridLines = [1, 0.5, 0].map(frac => {
         const y = padTop + plotH - frac * plotH;
-        return `<line class="stats-chart-grid" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}"></line>
-                <text class="stats-chart-axis-y" x="${padLeft - 5}" y="${y + 2.5}" text-anchor="end">${Math.round(frac * 100)}</text>`;
+        return `<line class="stats-chart-grid" x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}"></line>
+                <text class="stats-chart-axis-y" x="${padLeft - 5}" y="${(y + 2.5).toFixed(1)}" text-anchor="end">${Math.round(frac * 100)}</text>`;
       }).join('');
 
-      const xLabels = points.map((p, i) =>
-        `<text class="stats-chart-axis-x" x="${p.x}" y="${height - 6}" text-anchor="middle">${MONTH_SHORT[i]}</text>`
-      ).join('');
+      if (series.habits.length === 0) {
+        svg.innerHTML = gridLines;
+        return;
+      }
 
-      const dots = points.map(p => `<circle class="stats-chart-dot" cx="${p.x}" cy="${p.y}" r="3"></circle>`).join('');
+      // Alle Habits einer Gruppe teilen sich denselben x-Bereich (gleiche period/refDate) –
+      // maxX kommt daher von einem beliebigen Habit; Math.max(1, …) verhindert Division durch 0
+      // im Randfall "nur der Startanker x=0 vorhanden" (z. B. Jahresansicht im Januar).
+      const maxX = Math.max(1, ...series.habits.map(h => h.points[h.points.length - 1].x));
 
-      svg.innerHTML = `${gridLines}<path class="stats-chart-line" d="${linePath}"></path>${dots}${xLabels}`;
+      const lines = series.habits.map(h => {
+        const pts = h.points.map(p => ({
+          x: padLeft + (p.x / maxX) * plotW,
+          y: padTop + plotH - (Math.min(100, Math.max(0, p.y)) / 100) * plotH,
+        }));
+        const d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
+        return `<path class="stats-line" d="${d}" style="stroke:${h.color}"></path>`;
+      }).join('');
+
+      svg.innerHTML = gridLines + lines;
+    }
+
+    // Legende unter dem Chart: farbiger Punkt + Emoji + Name links, aktueller Wert + Trendpfeil
+    // rechts (Vergleich des letzten mit dem vorletzten Punkt der Punktreihe).
+    function renderStatsLegend(series) {
+      const el = document.getElementById('statsLegend');
+      if (series.habits.length === 0) {
+        el.innerHTML = `<div class="empty-hint">Keine Gewohnheiten in dieser Gruppe.</div>`;
+        return;
+      }
+
+      el.innerHTML = series.habits.map(h => {
+        const prevY = h.points.length >= 2 ? h.points[h.points.length - 2].y : h.endValue;
+        let arrow = '→', trendClass = 'stats-trend-flat';
+        if (h.endValue > prevY) { arrow = '▲'; trendClass = 'stats-trend-up'; }
+        else if (h.endValue < prevY) { arrow = '▼'; trendClass = 'stats-trend-down'; }
+
+        return `<div class="stats-legend-row">
+          <span class="stats-legend-dot" style="background:${h.color}"></span>
+          <span class="stats-legend-label"><span>${h.emoji}</span>${escapeHtml(h.name)}</span>
+          <span class="stats-legend-value"><span>${Math.round(h.endValue)}%</span><span class="${trendClass}">${arrow}</span></span>
+        </div>`;
+      }).join('');
     }
 
     // ═══════════════════════════════════════════
@@ -2996,6 +3065,7 @@
       renderHabitTable();
       renderSettingsLists();
       renderDailySummary();
+      if (state.settings.viewMode === 'stats') renderStatsPanel();
     }
 
     // Add / Rename Group
@@ -3033,6 +3103,7 @@
         if (idx !== -1) state.groups[idx] = name;
         state.habits.forEach(h => { if (h.group === editingGroupName) h.group = name; });
         if (state.activeGroup === editingGroupName) state.activeGroup = name;
+        if (state.statsGroup === editingGroupName) state.statsGroup = name;
         editingGroupName = null;
       } else {
         if (state.groups.includes(name)) {
@@ -3047,6 +3118,7 @@
       renderGroupTabs();
       renderHabitTable();
       renderSettingsLists();
+      if (state.settings.viewMode === 'stats') renderStatsPanel();
     }
 
     // ═══════════════════════════════════════════
@@ -3154,6 +3226,7 @@
         renderHabitTable();
         renderSettingsLists();
         renderDailySummary();
+        if (state.settings.viewMode === 'stats') renderStatsPanel();
       } else if (type === 'deleteGroup') {
         if (state.groups.length > 1) {
           const remaining = state.groups.filter(g => g !== id);
@@ -3161,10 +3234,12 @@
           state.habits.forEach(h => { if (h.group === id) h.group = fallback; });
           state.groups = remaining;
           if (state.activeGroup === id) state.activeGroup = fallback;
+          if (state.statsGroup === id) state.statsGroup = fallback;
           saveState();
           renderGroupTabs();
           renderHabitTable();
           renderSettingsLists();
+          if (state.settings.viewMode === 'stats') renderStatsPanel();
         }
       } else if (type === 'resetAll') {
         localStorage.removeItem(STORAGE_KEY);
@@ -3342,9 +3417,7 @@
       state.viewMonth = now.getMonth();
       const thisMonday = getWeekDates(now)[0];
       state.currentWeekStart = dateKey(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate());
-      state.statsYear = now.getFullYear();
-      state.statsMonth = now.getMonth();
-      state.statsHabitId = state.habits[0] ? state.habits[0].id : null;
+      state.statsGroup = state.groups[0] || null;
 
       applyAccentTheme(state.settings.accentTheme);
       applyColorTheme(state.settings.colorTheme);
@@ -3396,31 +3469,13 @@
       document.getElementById('nextWeek').addEventListener('click', () => shiftCurrentWeek(7));
 
       // Statistik: Monat/Jahr-Umschalter
-      document.querySelectorAll('#statsModeTabs button').forEach(btn => {
+      document.querySelectorAll('#statsPeriodTabs button').forEach(btn => {
         btn.addEventListener('click', () => {
           if (btn.dataset.statsmode === state.settings.statsMode) return;
           state.settings.statsMode = btn.dataset.statsmode;
           saveState();
           renderStatsPanel();
         });
-      });
-      document.getElementById('prevStatsMonth').addEventListener('click', () => {
-        state.statsMonth--;
-        if (state.statsMonth < 0) { state.statsMonth = 11; state.statsYear--; }
-        renderStatsMonthView();
-      });
-      document.getElementById('nextStatsMonth').addEventListener('click', () => {
-        state.statsMonth++;
-        if (state.statsMonth > 11) { state.statsMonth = 0; state.statsYear++; }
-        renderStatsMonthView();
-      });
-      document.getElementById('prevStatsYear').addEventListener('click', () => {
-        state.statsYear--;
-        renderStatsYearView();
-      });
-      document.getElementById('nextStatsYear').addEventListener('click', () => {
-        state.statsYear++;
-        renderStatsYearView();
       });
 
       // Year view
