@@ -246,6 +246,86 @@
     .sq-diff-badge.mittel  { background: rgba(232,184,74,0.18); color: var(--accent); }
     .sq-diff-badge.schwer  { background: rgba(201,122,106,0.18); color: var(--danger); }
 
+    .sq-top-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .sq-history-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 7px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.15s;
+    }
+    .sq-history-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+    }
+
+    /* ─── Sidequest-Verlauf (Modal) ─── */
+    .sq-history-list {
+      list-style: none;
+      max-height: 55vh;
+      overflow-y: auto;
+    }
+    .sq-history-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .sq-history-row:last-child {
+      border-bottom: none;
+    }
+    .sq-history-status {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+    .sq-history-status.done {
+      color: var(--success);
+      background: rgba(124,184,122,0.15);
+    }
+    .sq-history-status.skipped {
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+    }
+    .sq-history-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .sq-history-text {
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sq-history-date {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .sq-history-list .sq-diff-badge {
+      flex-shrink: 0;
+    }
+
     .sq-diff-tabs {
       display: flex;
       gap: 6px;
@@ -1333,7 +1413,10 @@
             <span class="drag-handle" draggable="true" data-widget-handle="sidequest" aria-label="Widget verschieben" title="Ziehen zum Verschieben">⋮⋮</span>
             <div class="card-title">Tägliche Sidequest</div>
           </div>
-          <span class="sq-diff-badge" id="sqDiffBadge">Mittel</span>
+          <div class="sq-top-right">
+            <button type="button" class="sq-history-btn" id="btnSqHistory" title="Sidequest-Verlauf">🕘 Verlauf</button>
+            <span class="sq-diff-badge" id="sqDiffBadge">Mittel</span>
+          </div>
         </div>
 
         <div class="sq-diff-tabs" id="sqDiffTabs">
@@ -1609,6 +1692,17 @@
         <button class="btn btn-secondary" id="cancelConfirm">Abbrechen</button>
         <button class="btn btn-secondary" id="confirmSecondary" style="display:none;">Nur heute</button>
         <button class="btn btn-danger" id="confirmDelete">Löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Sidequest-Verlauf -->
+  <div class="modal-overlay" id="modalSqHistory">
+    <div class="modal">
+      <h3>Sidequest-Verlauf</h3>
+      <ul class="sq-history-list" id="sqHistoryList"></ul>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="closeSqHistory" style="flex:1">Schließen</button>
       </div>
     </div>
   </div>
@@ -2124,6 +2218,9 @@
     };
     const DIFFICULTY_LABELS = { einfach: 'Einfach', mittel: 'Mittel', schwer: 'Schwer' };
 
+    // Maximale Anzahl Einträge in state.sidequestHistory, damit localStorage nicht unbegrenzt wächst.
+    const SIDEQUEST_HISTORY_LIMIT = 50;
+
     // Laufzeit-Cache der bereits verwendeten Kombinationen pro Schwierigkeit (Set = schnelles has/add).
     // Wird beim Laden aus state.sidequest.usedCombos befüllt und nach jeder Generierung dorthin zurückgeschrieben.
     const usedComboSets = { einfach: new Set(), mittel: new Set(), schwer: new Set() };
@@ -2183,6 +2280,9 @@
         usedCombos: { einfach: [], mittel: [], schwer: [] }, // pro Schwierigkeit bereits vergebene Baugruppen-Kombinationen
         lastActionDate: null, // "YYYY-MM-DD" des letzten Erledigt/Übersprungen-Klicks, für den Tages-Überblick
       },
+      // Verlauf abgeschlossener/übersprungener Sidequests, neueste am Ende angehängt (siehe
+      // pushSidequestHistory()); auf die letzten SIDEQUEST_HISTORY_LIMIT Einträge begrenzt.
+      sidequestHistory: [], // { text, difficulty, status: 'done' | 'skipped', date }
       settings: {
         accentTheme: 'grau',
         colorTheme: 'grau',
@@ -2207,6 +2307,7 @@
           if (saved.sidequest) {
             state.sidequest = Object.assign(state.sidequest, saved.sidequest);
           }
+          state.sidequestHistory = Array.isArray(saved.sidequestHistory) ? saved.sidequestHistory : [];
           if (saved.settings) {
             state.settings = Object.assign(state.settings, saved.settings);
           }
@@ -2235,6 +2336,7 @@
           todos: state.todos,
           notes: state.notes,
           sidequest: state.sidequest,
+          sidequestHistory: state.sidequestHistory,
           settings: state.settings,
           activeGroup: state.activeGroup,
         }));
@@ -2246,6 +2348,12 @@
     // ═══════════════════════════════════════════
     const MONTH_NAMES = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
     const MONTH_SHORT = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+    // Formatiert einen "YYYY-MM-DD"-Datumsschlüssel kurz, z. B. "22. Aug" (für den Sidequest-Verlauf).
+    function formatShortDate(dateKeyStr) {
+      const [, m, d] = dateKeyStr.split('-').map(Number);
+      return `${d}. ${MONTH_SHORT[m - 1]}`;
+    }
 
     function todayStr() {
       const d = new Date();
@@ -3205,6 +3313,27 @@
       });
     }
 
+    // Rendert state.sidequestHistory in #modalSqHistory, neueste zuerst (Array wird chronologisch
+    // aufsteigend gespeichert, siehe pushSidequestHistory()).
+    function renderSidequestHistory() {
+      const list = document.getElementById('sqHistoryList');
+      if (state.sidequestHistory.length === 0) {
+        list.innerHTML = '<li class="empty-hint" style="padding:12px 0;">Noch keine Einträge.</li>';
+        return;
+      }
+      list.innerHTML = state.sidequestHistory.slice().reverse().map(entry => {
+        const isDone = entry.status === 'done';
+        return `<li class="sq-history-row">
+          <span class="sq-history-status ${isDone ? 'done' : 'skipped'}">${isDone ? '✓' : '~'}</span>
+          <div class="sq-history-info">
+            <div class="sq-history-text">${escapeHtml(entry.text)}</div>
+            <div class="sq-history-date">${formatShortDate(entry.date)}</div>
+          </div>
+          <span class="sq-diff-badge ${entry.difficulty}">${DIFFICULTY_LABELS[entry.difficulty] || entry.difficulty}</span>
+        </li>`;
+      }).join('');
+    }
+
     function switchSidequestDifficulty(diff) {
       if (diff === state.sidequest.difficulty && state.sidequest.current) return;
       state.sidequest.difficulty = diff;
@@ -3219,7 +3348,20 @@
       if (sel) sel.value = diff;
     }
 
+    // Hängt einen abgeschlossenen/übersprungenen Sidequest-Eintrag ans Ende von
+    // state.sidequestHistory an und kürzt auf die letzten SIDEQUEST_HISTORY_LIMIT Einträge
+    // (älteste zuerst verworfen), damit localStorage nicht unbegrenzt wächst.
+    function pushSidequestHistory(text, difficulty, status) {
+      state.sidequestHistory.push({ text, difficulty, status, date: todayStr() });
+      if (state.sidequestHistory.length > SIDEQUEST_HISTORY_LIMIT) {
+        state.sidequestHistory = state.sidequestHistory.slice(-SIDEQUEST_HISTORY_LIMIT);
+      }
+    }
+
     function skipSidequest() {
+      if (state.sidequest.current) {
+        pushSidequestHistory(state.sidequest.current.text, state.sidequest.difficulty, 'skipped');
+      }
       state.sidequest.lastText = state.sidequest.current ? state.sidequest.current.text : null;
       state.sidequest.current = {
         difficulty: state.sidequest.difficulty,
@@ -3233,6 +3375,9 @@
 
     function completeSidequest() {
       const diff = state.sidequest.difficulty;
+      if (state.sidequest.current) {
+        pushSidequestHistory(state.sidequest.current.text, diff, 'done');
+      }
       state.sidequest.lastText = state.sidequest.current ? state.sidequest.current.text : null;
       state.sidequest.current = {
         difficulty: diff,
@@ -4011,6 +4156,11 @@
       });
       document.getElementById('btnSqComplete').addEventListener('click', completeSidequest);
       document.getElementById('btnSqSkip').addEventListener('click', skipSidequest);
+      document.getElementById('btnSqHistory').addEventListener('click', () => {
+        renderSidequestHistory();
+        openModal('modalSqHistory');
+      });
+      document.getElementById('closeSqHistory').addEventListener('click', () => closeModal('modalSqHistory'));
 
       // Enter in modals
       document.getElementById('habitName').addEventListener('keydown', e => {
