@@ -202,6 +202,28 @@
       background: var(--bg-card-hover);
     }
 
+    /* ─── Tages-Überblick (steht immer über den per Drag & Drop sortierbaren Widgets) ─── */
+    .daily-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .daily-summary-icon {
+      flex-shrink: 0;
+      font-size: 1rem;
+    }
+    .daily-summary strong {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
     /* ─── Sidequest card ─── */
     .sq-top {
       display: flex;
@@ -1149,6 +1171,13 @@
       </div>
     </div>
 
+    <!-- Tages-Überblick: liegt bewusst außerhalb von #detailView, damit die Drag & Drop
+         Sortierung der Widgets diese Leiste nie erfasst und sie immer ganz oben bleibt. -->
+    <div class="daily-summary" id="dailySummary">
+      <span class="daily-summary-icon">☀️</span>
+      <span id="dailySummaryText">–</span>
+    </div>
+
     <!-- DETAIL VIEW -->
     <div class="detail-view" id="detailView">
       <!-- Sidequest -->
@@ -1965,6 +1994,7 @@
         current: null,   // { text, difficulty }
         lastText: null,
         usedCombos: { einfach: [], mittel: [], schwer: [] }, // pro Schwierigkeit bereits vergebene Baugruppen-Kombinationen
+        lastActionDate: null, // "YYYY-MM-DD" des letzten Erledigt/Übersprungen-Klicks, für den Tages-Überblick
       },
       settings: {
         accentTheme: 'grau',
@@ -2338,6 +2368,7 @@
           saveState();
           // Nur das Streak-Badge dieser einen Gewohnheit neu berechnen, nicht die ganze Tabelle.
           updateHabitStreakBadge(btn.dataset.habit);
+          renderDailySummary();
         });
       });
     }
@@ -2631,6 +2662,52 @@
     }
 
     // ═══════════════════════════════════════════
+    // TAGES-ÜBERBLICK
+    // ═══════════════════════════════════════════
+
+    // Fasst den heutigen Stand über alle Widgets hinweg zusammen (unabhängig von activeGroup,
+    // damit die Zahlen der Leiste über allen Widgets immer das Gesamtbild zeigen).
+    function getDailySummary() {
+      const key = todayStr();
+      let erledigteHabits = 0;
+      state.habits.forEach(h => {
+        if (state.checks[key + '_' + h.id]) erledigteHabits++;
+      });
+      const offeneHabits = state.habits.length - erledigteHabits;
+      const offeneTodos = state.todos.filter(t => !t.done).length;
+      const sidequestErledigt = state.sidequest.lastActionDate === key;
+      return { offeneHabits, erledigteHabits, offeneTodos, sidequestErledigt };
+    }
+
+    function renderDailySummary() {
+      const { offeneHabits, erledigteHabits, offeneTodos, sidequestErledigt } = getDailySummary();
+      const totalHabits = offeneHabits + erledigteHabits;
+      const el = document.getElementById('dailySummaryText');
+      const iconEl = document.querySelector('.daily-summary-icon');
+      if (!el) return;
+
+      const allDone = offeneHabits === 0 && totalHabits > 0 && offeneTodos === 0 && sidequestErledigt;
+
+      if (allDone) {
+        iconEl.textContent = '🎉';
+        el.innerHTML = 'Heute schon alles erledigt! Gönn dir eine Pause.';
+        return;
+      }
+
+      const parts = [];
+      if (totalHabits > 0) {
+        parts.push(`<strong>${offeneHabits}</strong> von ${totalHabits} Habits offen`);
+      }
+      parts.push(offeneTodos === 0 ? 'keine To-Dos fällig' : `<strong>${offeneTodos}</strong> To-Do${offeneTodos === 1 ? '' : 's'} fällig`);
+      if (!sidequestErledigt) {
+        parts.push('Sidequest noch offen');
+      }
+
+      iconEl.textContent = '☀️';
+      el.innerHTML = 'Heute: ' + parts.join(' · ');
+    }
+
+    // ═══════════════════════════════════════════
     // RENDER: TODOS & NOTES
     // ═══════════════════════════════════════════
     function renderTodos() {
@@ -2650,7 +2727,7 @@
       list.querySelectorAll('.todo-check').forEach(el => {
         el.addEventListener('click', () => {
           const t = state.todos.find(x => x.id === el.dataset.id);
-          if (t) { t.done = !t.done; saveState(); renderTodos(); }
+          if (t) { t.done = !t.done; saveState(); renderTodos(); renderDailySummary(); }
         });
       });
       list.querySelectorAll('.todo-del').forEach(el => {
@@ -2658,6 +2735,7 @@
           state.todos = state.todos.filter(x => x.id !== el.dataset.id);
           saveState();
           renderTodos();
+          renderDailySummary();
         });
       });
     }
@@ -2752,8 +2830,10 @@
         difficulty: state.sidequest.difficulty,
         text: pickSidequest(state.sidequest.difficulty, state.sidequest.lastText),
       };
+      state.sidequest.lastActionDate = todayStr();
       saveState();
       renderSidequest();
+      renderDailySummary();
     }
 
     function completeSidequest() {
@@ -2763,8 +2843,10 @@
         difficulty: diff,
         text: pickSidequest(diff, state.sidequest.lastText),
       };
+      state.sidequest.lastActionDate = todayStr();
       saveState();
       renderSidequest();
+      renderDailySummary();
     }
 
     // ═══════════════════════════════════════════
@@ -2913,6 +2995,7 @@
       renderGroupTabs();
       renderHabitTable();
       renderSettingsLists();
+      renderDailySummary();
     }
 
     // Add / Rename Group
@@ -3070,6 +3153,7 @@
         renderGroupTabs();
         renderHabitTable();
         renderSettingsLists();
+        renderDailySummary();
       } else if (type === 'deleteGroup') {
         if (state.groups.length > 1) {
           const remaining = state.groups.filter(g => g !== id);
@@ -3117,6 +3201,7 @@
       input.value = '';
       saveState();
       renderTodos();
+      renderDailySummary();
     }
 
     // ═══════════════════════════════════════════
@@ -3276,9 +3361,10 @@
       renderTodos();
       renderNotes();
       renderSidequest();
+      renderDailySummary();
 
-      // Keep the date badge correct if the app stays open across midnight.
-      setInterval(updateDateBadge, 60 * 1000);
+      // Keep the date badge and daily summary correct if the app stays open across midnight.
+      setInterval(() => { updateDateBadge(); renderDailySummary(); }, 60 * 1000);
 
       // Month nav
       document.getElementById('prevMonth').addEventListener('click', () => {
