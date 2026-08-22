@@ -1438,6 +1438,11 @@
     const STORAGE_KEY = 'myDashboard_v2';
     const OLD_STORAGE_KEY = 'myDashboard_v1';
 
+    // Feste Farbpalette für die gruppenbasierten Statistik-Charts (siehe getGroupChartSeries).
+    // Wird pro Gruppe der Reihe nach an die Habits vergeben und wiederholt sich, falls eine
+    // Gruppe mehr Habits als Farben enthält.
+    const HABIT_CHART_COLORS = ['#7cc9a0', '#d1697a', '#c9a24a', '#5aa9e6', '#a889e8', '#5ec9c0'];
+
     const DEFAULT_GROUPS = ['Gesundheit', 'Alltag', 'Sonstiges'];
     const DEFAULT_HABITS = [
       { id: 'h1', name: 'Trinken', emoji: '💧', group: 'Gesundheit' },
@@ -2193,6 +2198,95 @@
           return { habitId: h.id, name: h.name, emoji: h.emoji, ...stats };
         })
         .sort((a, b) => b.quote - a.quote);
+    }
+
+    // ═══════════════════════════════════════════
+    // GRUPPENBASIERTE STATISTIK-CHARTS
+    // ═══════════════════════════════════════════
+
+    // Anzahl der Tage aus Monat `m` (0-basiert), die bezogen auf refDate bereits "vergangen"
+    // sind: volle Monatslänge für Monate vor refDate.getMonth(), nur der Tag-Anteil von
+    // refDate selbst für dessen eigenen Monat, 0 für alles danach.
+    function daysElapsedInMonth(year, m, refDate) {
+      if (m < refDate.getMonth()) return daysInMonth(year, m);
+      if (m === refDate.getMonth()) return refDate.getDate();
+      return 0;
+    }
+
+    // Zählt, wie oft `habitId` in Monat `m` (0-basiert) an dessen ersten `days` Tagen erledigt wurde.
+    function countDoneInMonth(habitId, year, m, days) {
+      let done = 0;
+      for (let d = 1; d <= days; d++) {
+        if (state.checks[dateKey(year, m, d) + '_' + habitId]) done++;
+      }
+      return done;
+    }
+
+    // Laufende Erfüllungsquote eines einzelnen Habits als Punktreihe { x, y }, Basis für
+    // getGroupChartSeries(). x=0 ist immer ein fester Startanker bei y=0 (Tag/Monat 0
+    // existiert nicht als reale Quote – Division durch 0), erst ab x=1 wird echt gerechnet.
+    //   period='month': x = Tag 0..aktueller Tag von refDate,
+    //                   y = erledigte Tage 1..x / x * 100.
+    //   period='year':  x = Monat 0..aktueller Monat von refDate,
+    //                   y = erledigte Tage seit Jahresbeginn bis einschl. Monat x /
+    //                       vergangene Tage seit Jahresbeginn bis einschl. Monat x * 100.
+    function getHabitChartPoints(habitId, period, refDate) {
+      const year = refDate.getFullYear();
+      const points = [{ x: 0, y: 0 }];
+
+      if (period === 'month') {
+        const dayCutoff = refDate.getDate();
+        const month = refDate.getMonth();
+        let done = 0;
+        for (let x = 1; x <= dayCutoff; x++) {
+          if (state.checks[dateKey(year, month, x) + '_' + habitId]) done++;
+          points.push({ x, y: (done / x) * 100 });
+        }
+      } else {
+        const monthCutoff = refDate.getMonth();
+        // Januar (Monat 0) fließt von Anfang an in die Kumulation "seit Jahresbeginn" ein,
+        // auch wenn der zugehörige Chart-Punkt x=0 fest auf y=0 steht (Startanker statt
+        // echtem Januar-Wert).
+        let daysTotal = daysElapsedInMonth(year, 0, refDate);
+        let doneTotal = countDoneInMonth(habitId, year, 0, daysTotal);
+        for (let x = 1; x <= monthCutoff; x++) {
+          const daysInThisMonth = daysElapsedInMonth(year, x, refDate);
+          doneTotal += countDoneInMonth(habitId, year, x, daysInThisMonth);
+          daysTotal += daysInThisMonth;
+          points.push({ x, y: daysTotal > 0 ? (doneTotal / daysTotal) * 100 : 0 });
+        }
+      }
+
+      return points;
+    }
+
+    // Baut die Chart-Datenreihen aller Habits einer Gruppe für die neue Statistik-Ansicht.
+    // groupId ist der Gruppenname (state.habits[].group ist ein einfacher String, siehe
+    // DEFAULT_GROUPS) – "groupId" wird hier nur als Parametername gemäß Aufgabenstellung
+    // verwendet, es gibt keine separate Gruppen-ID im Datenmodell.
+    // Jedem Habit wird der Reihe nach (innerhalb der Gruppe) eine feste Farbe aus
+    // HABIT_CHART_COLORS zugewiesen, die sich bei mehr Habits als Farben wiederholt.
+    function getGroupChartSeries(groupId, period, refDate) {
+      const groupHabits = state.habits.filter(h => h.group === groupId);
+
+      const habits = groupHabits.map((h, i) => {
+        const points = getHabitChartPoints(h.id, period, refDate);
+        const endValue = points[points.length - 1].y;
+        return {
+          id: h.id,
+          name: h.name,
+          emoji: h.emoji,
+          color: HABIT_CHART_COLORS[i % HABIT_CHART_COLORS.length],
+          points,
+          endValue,
+        };
+      });
+
+      const avg = habits.length > 0
+        ? habits.reduce((sum, h) => sum + h.endValue, 0) / habits.length
+        : 0;
+
+      return { habits, avg };
     }
 
     function uid() {
