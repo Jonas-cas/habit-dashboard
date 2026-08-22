@@ -759,6 +759,63 @@
       color: var(--text-secondary);
     }
 
+    /* ─── Habit-Heatmap-Ansicht ─── */
+    .habit-name {
+      cursor: pointer;
+    }
+    .habit-name:hover {
+      text-decoration: underline;
+      text-decoration-color: var(--text-muted);
+    }
+    .heatmap-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.3rem;
+      font-weight: 650;
+      margin-bottom: 8px;
+    }
+    .heatmap-stats {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .heatmap-streak {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 18px;
+    }
+    .heatmap-streak.has-streak {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .heatmap-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 6px;
+    }
+    .heatmap-grid {
+      display: inline-flex;
+      gap: 3px;
+    }
+    .heatmap-week {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .heatmap-day {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      background: var(--bg-elevated);
+    }
+    .heatmap-day.done {
+      background: var(--accent);
+    }
+    .heatmap-day.empty {
+      background: transparent;
+    }
+
     /* ─── Todos ─── */
     .todo-input-row {
       display: flex;
@@ -1333,6 +1390,25 @@
         <button class="icon-btn" id="nextYear">›</button>
       </div>
       <div class="months-grid" id="monthsGrid"></div>
+    </div>
+
+    <!-- HABIT HEATMAP VIEW -->
+    <div class="year-view habit-heatmap-view" id="habitHeatmapView">
+      <button class="btn btn-secondary back-btn" id="btnBackFromHeatmap">← Zurück</button>
+
+      <div class="heatmap-title"><span id="heatmapEmoji"></span><span id="heatmapName"></span></div>
+      <div class="heatmap-stats" id="heatmapStatsLine">–</div>
+      <div class="heatmap-streak" id="heatmapStreakLine"></div>
+
+      <div class="year-nav">
+        <button class="icon-btn" id="prevHeatmapYear">‹</button>
+        <h2 id="heatmapYearLabel">2026</h2>
+        <button class="icon-btn" id="nextHeatmapYear">›</button>
+      </div>
+
+      <div class="heatmap-scroll">
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+      </div>
     </div>
   </div>
 
@@ -2490,6 +2566,19 @@
       });
     }
 
+    // Hängt den Klick-Handler an alle .habit-name-Spans in `container` (Kopfzeile in der
+    // Monatsansicht, Zeilen-Beschriftung in der Wochenansicht) – öffnet die Jahres-Heatmap
+    // der jeweiligen Gewohnheit. Bewusst nur auf dem Namen selbst, nicht auf der ganzen
+    // Zelle, damit Klicks auf Emoji/Streak-Badge nicht versehentlich navigieren.
+    function attachHabitNameClickHandlers(container) {
+      container.querySelectorAll('.habit-name').forEach(el => {
+        el.addEventListener('click', () => {
+          const cell = el.closest('[data-habit]');
+          if (cell) showHabitHeatmap(cell.dataset.habit);
+        });
+      });
+    }
+
     // Dispatcher: rendert je nach state.settings.viewMode entweder die Monats- oder die
     // Wochenansicht in dieselbe Tabelle (kein doppeltes Rendering, keine zwei Tabellen im DOM).
     function renderHabitTable() {
@@ -2526,6 +2615,7 @@
         <th style="text-align:left;padding-left:8px;min-width:42px;">Tag</th>
         ${habits.map(h => `<th data-habit="${h.id}" title="${escapeHtml(h.name)}"><span class="habit-emoji">${h.emoji}</span><span class="habit-name">${escapeHtml(h.name)}</span>${habitStreakBadgeHtml(h.id)}</th>`).join('')}
       </tr>`;
+      attachHabitNameClickHandlers(head);
 
       const days = daysInMonth(y, m);
       const today = new Date();
@@ -2597,6 +2687,7 @@
       });
       body.innerHTML = rows;
       attachCheckButtonHandlers(body);
+      attachHabitNameClickHandlers(body);
     }
 
     // ═══════════════════════════════════════════
@@ -2774,6 +2865,36 @@
           renderHabitTable();
         });
       });
+    }
+
+    // ═══════════════════════════════════════════
+    // RENDER: HABIT-HEATMAP
+    // ═══════════════════════════════════════════
+    // Rendert Titel/Stats/Streak + die GitHub-Contribution-artige Jahres-Heatmap für
+    // state.heatmapHabitId/state.heatmapYear, basierend auf getHabitYearHeatmap(). Wird
+    // sowohl beim Öffnen der Ansicht als auch beim Jahreswechsel (prev/next) aufgerufen.
+    function renderHabitHeatmap() {
+      const habit = state.habits.find(h => h.id === state.heatmapHabitId);
+      if (!habit) { showDetailView(); return; }
+
+      document.getElementById('heatmapEmoji').textContent = habit.emoji;
+      document.getElementById('heatmapName').textContent = habit.name;
+      document.getElementById('heatmapYearLabel').textContent = state.heatmapYear;
+
+      const { weeks, totalDone, totalDays } = getHabitYearHeatmap(habit.id, state.heatmapYear);
+      document.getElementById('heatmapStatsLine').textContent = `${totalDone} von ${totalDays} Tagen erledigt`;
+
+      const { currentStreak } = calculateStreak(habit.id);
+      const streakEl = document.getElementById('heatmapStreakLine');
+      streakEl.textContent = `🔥 ${currentStreak} Tage in Folge`;
+      streakEl.classList.toggle('has-streak', currentStreak > 0);
+
+      const grid = document.getElementById('heatmapGrid');
+      grid.innerHTML = weeks.map(week => `
+        <div class="heatmap-week">
+          ${week.map(v => `<div class="heatmap-day ${v === null ? 'empty' : (v === 1 ? 'done' : '')}"></div>`).join('')}
+        </div>
+      `).join('');
     }
 
     // ═══════════════════════════════════════════
@@ -3267,6 +3388,8 @@
         Object.keys(state.checks).forEach(k => {
           if (k.endsWith('_' + id)) delete state.checks[k];
         });
+        // Heatmap-Ansicht dieses Habits ist jetzt ungültig, falls gerade offen.
+        if (state.heatmapHabitId === id) showDetailView();
         saveState();
         renderGroupTabs();
         renderHabitTable();
@@ -3304,11 +3427,21 @@
     function showDetailView() {
       document.getElementById('detailView').classList.remove('hidden');
       document.getElementById('yearView').classList.remove('active');
+      document.getElementById('habitHeatmapView').classList.remove('active');
     }
     function showYearView() {
       document.getElementById('detailView').classList.add('hidden');
+      document.getElementById('habitHeatmapView').classList.remove('active');
       document.getElementById('yearView').classList.add('active');
       renderYearView();
+    }
+    function showHabitHeatmap(habitId) {
+      state.heatmapHabitId = habitId;
+      state.heatmapYear = new Date().getFullYear();
+      document.getElementById('detailView').classList.add('hidden');
+      document.getElementById('yearView').classList.remove('active');
+      document.getElementById('habitHeatmapView').classList.add('active');
+      renderHabitHeatmap();
     }
 
     // ═══════════════════════════════════════════
@@ -3534,6 +3667,17 @@
       document.getElementById('nextYear').addEventListener('click', () => {
         state.viewYear++;
         renderYearView();
+      });
+
+      // Habit-Heatmap
+      document.getElementById('btnBackFromHeatmap').addEventListener('click', showDetailView);
+      document.getElementById('prevHeatmapYear').addEventListener('click', () => {
+        state.heatmapYear--;
+        renderHabitHeatmap();
+      });
+      document.getElementById('nextHeatmapYear').addEventListener('click', () => {
+        state.heatmapYear++;
+        renderHabitHeatmap();
       });
 
       // Habit / Group add
