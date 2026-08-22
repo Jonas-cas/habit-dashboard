@@ -1315,6 +1315,31 @@
       margin-bottom: 12px;
       line-height: 1.5;
     }
+
+    /* ─── Feature-Übersicht (Hilfe-Modal) ─── */
+    .help-list {
+      list-style: none;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .help-row {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .help-row:last-child {
+      border-bottom: none;
+    }
+    .help-feature {
+      font-size: 0.92rem;
+      font-weight: 650;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+    .help-location {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
     .settings-stat-row {
       display: flex;
       justify-content: space-between;
@@ -1625,6 +1650,13 @@
     <div class="modal settings-modal">
       <h3>Einstellungen</h3>
 
+      <details class="settings-section">
+        <summary>❓ Hilfe</summary>
+        <div class="settings-section-body">
+          <button class="btn btn-secondary btn-sm" id="btnFeatureOverview">Feature-Übersicht</button>
+        </div>
+      </details>
+
       <details class="settings-section" open>
         <summary>🎯 Gewohnheiten verwalten</summary>
         <div class="settings-section-body">
@@ -1686,6 +1718,62 @@
 
       <div class="modal-actions">
         <button class="btn btn-secondary" id="closeSettings" style="flex:1">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Feature-Übersicht -->
+  <div class="modal-overlay" id="modalFeatureOverview">
+    <div class="modal">
+      <h3>Feature-Übersicht</h3>
+      <ul class="help-list">
+        <li class="help-row">
+          <div class="help-feature">Farbschemata</div>
+          <div class="help-location">⚙️ oben rechts → Abschnitt „Darstellung"</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Streak-Anzeige</div>
+          <div class="help-location">Automatisch als 🔥-Badge unter jedem Habit-Namen, sobald eine Serie läuft</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Woche/Monat/Statistik</div>
+          <div class="help-location">Tabs „Monat / Woche / 📊 Statistik" im Gewohnheiten-Widget</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Statistik-Diagramm</div>
+          <div class="help-location">Tab „📊 Statistik" → Gruppen-Tabs oben, Monat/Jahr-Umschalter in der Karte</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Jahres-Heatmap</div>
+          <div class="help-location">Klick auf einen Habit-Namen in der Tabelle</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Markdown-Vorschau</div>
+          <div class="help-location">Notizen-Widget → Tab „Vorschau"</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Drag & Drop Reihenfolge</div>
+          <div class="help-location">⋮⋮-Griff links neben jedem Widget-Titel ziehen</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Tages-Überblick</div>
+          <div class="help-location">Ganz oben, direkt unter dem Header</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Wiederkehrende To-Dos</div>
+          <div class="help-location">🔁-Button neben dem „Neues To-Do…"-Feld</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Sidequest-Verlauf</div>
+          <div class="help-location">🕘 „Verlauf"-Link neben dem Schwierigkeits-Badge</div>
+        </li>
+        <li class="help-row">
+          <div class="help-feature">Sidequest erledigen/überspringen</div>
+          <div class="help-location">„✓ Erledigt" / „⤼ Überspringen" in der Sidequest-Karte</div>
+        </li>
+      </ul>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="closeFeatureOverview" style="flex:1">Schließen</button>
       </div>
     </div>
   </div>
@@ -4137,6 +4225,11 @@
       document.getElementById('btnResetAll').addEventListener('click', () => {
         openConfirm('Alle Daten zurücksetzen?', 'Gewohnheiten, Gruppen, Häkchen, To-Dos, Notizen und der Sidequest-Fortschritt werden unwiderruflich gelöscht.', { type: 'resetAll' });
       });
+      document.getElementById('btnFeatureOverview').addEventListener('click', () => {
+        closeModal('modalSettings');
+        openModal('modalFeatureOverview');
+      });
+      document.getElementById('closeFeatureOverview').addEventListener('click', () => closeModal('modalFeatureOverview'));
 
       // Confirm modal
       document.getElementById('cancelConfirm').addEventListener('click', () => {
