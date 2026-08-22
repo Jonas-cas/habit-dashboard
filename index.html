@@ -840,12 +840,19 @@
     }
 
     /* ─── Habit-Heatmap-Ansicht ─── */
+    /* Permanente (nicht nur hover-) gepunktete Unterstreichung, damit klickbare Habit-Namen
+       auch auf Touch-Geräten ohne Hover als interaktiv erkennbar sind, statt wie reiner
+       Tabellentext auszusehen. */
     .habit-name {
       cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-decoration-color: var(--text-muted);
+      text-underline-offset: 2px;
     }
     .habit-name:hover {
-      text-decoration: underline;
-      text-decoration-color: var(--text-muted);
+      text-decoration-style: solid;
+      text-decoration-color: var(--text-secondary);
     }
     .heatmap-title {
       display: flex;
@@ -3272,7 +3279,7 @@
     }
 
     // ═══════════════════════════════════════════
-    // SIDEQUEST + XP/LEVEL SYSTEM
+    // SIDEQUEST
     // ═══════════════════════════════════════════
     function pickSidequest(difficulty, avoidText) {
       const usedSet = usedComboSets[difficulty] || (usedComboSets[difficulty] = new Set());
@@ -3887,6 +3894,44 @@
         currentInsertAfter = insertAfter;
       }
 
+      // ── Auto-Scroll während des Ziehens ──
+      // Die Seite ist mit allen Widgets inzwischen deutlich höher als der sichtbare Viewport,
+      // Quelle und Ziel eines Drags liegen also oft nicht gleichzeitig im Bild. Da touchmove
+      // während eines Drags preventDefault() aufruft (verhindert normales Scrollen), braucht es
+      // hier einen eigenen Auto-Scroll: nah am oberen/unteren Rand gezogen -> Seite scrollt
+      // automatisch, bis der Finger/Mauszeiger wieder von der Kante wegbewegt wird.
+      const AUTO_SCROLL_EDGE = 70;
+      const AUTO_SCROLL_SPEED = 14;
+      let autoScrollTimer = null;
+      let lastPointerX = 0;
+      let lastPointerY = 0;
+
+      function stopAutoScroll() {
+        if (autoScrollTimer) {
+          clearInterval(autoScrollTimer);
+          autoScrollTimer = null;
+        }
+      }
+
+      function updateAutoScroll(clientX, clientY) {
+        lastPointerX = clientX;
+        lastPointerY = clientY;
+        const vh = window.innerHeight;
+        let dir = 0;
+        if (clientY < AUTO_SCROLL_EDGE) dir = -1;
+        else if (clientY > vh - AUTO_SCROLL_EDGE) dir = 1;
+
+        stopAutoScroll();
+        if (dir === 0) return;
+        autoScrollTimer = setInterval(() => {
+          window.scrollBy(0, dir * AUTO_SCROLL_SPEED);
+          // Der Finger bewegt sich beim Auto-Scroll nicht mehr, das darunterliegende Widget
+          // aber schon – Drop-Ziel also auch ohne neues touchmove/dragover neu bestimmen.
+          const overEl = document.elementFromPoint(lastPointerX, lastPointerY);
+          updateDropTarget(lastPointerY, overEl);
+        }, 16);
+      }
+
       // ── Native HTML5 Drag & Drop (Maus / Trackpad) ──
       container.querySelectorAll('.drag-handle[draggable="true"]').forEach(handle => {
         handle.addEventListener('dragstart', e => {
@@ -3899,6 +3944,7 @@
         handle.addEventListener('dragend', () => {
           container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
           clearDragOverStyling();
+          stopAutoScroll();
           draggedId = null;
         });
       });
@@ -3909,6 +3955,7 @@
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
           updateDropTarget(e.clientY, widgetEl);
+          updateAutoScroll(e.clientX, e.clientY);
         });
         widgetEl.addEventListener('drop', e => {
           if (!draggedId) return;
@@ -3916,6 +3963,7 @@
           const targetId = widgetEl.dataset.widgetId;
           reorderWidget(draggedId, targetId, currentInsertAfter);
           clearDragOverStyling();
+          stopAutoScroll();
         });
       });
 
@@ -3936,6 +3984,7 @@
           const touch = e.touches[0];
           const overEl = document.elementFromPoint(touch.clientX, touch.clientY);
           updateDropTarget(touch.clientY, overEl);
+          updateAutoScroll(touch.clientX, touch.clientY);
         }, { passive: false });
 
         handle.addEventListener('touchend', () => {
@@ -3947,6 +3996,7 @@
           }
           container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
           clearDragOverStyling();
+          stopAutoScroll();
           draggedId = null;
         });
 
@@ -3954,6 +4004,7 @@
           touchActive = false;
           container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
           clearDragOverStyling();
+          stopAutoScroll();
           draggedId = null;
         });
       });
