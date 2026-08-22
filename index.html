@@ -153,7 +153,30 @@
       margin-bottom: 12px;
     }
 
-    /* ─── Widget-Reihenfolge per Drag & Drop ─── */
+    /* ─── Widget-Grid per Drag & Drop ─── */
+    .detail-view {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .detail-view .card {
+      /* Grid-gap übernimmt den Abstand; ohne das gäbe es doppelten Abstand (gap + margin). */
+      margin-bottom: 0;
+    }
+    /* Unterhalb dieser Breite wird eine 2. Spalte für die vergleichsweise breiten Widgets
+       (Habit-Tabelle, Sidequest-Text) zu eng – dann lieber sauber einspaltig stapeln. */
+    @media (max-width: 640px) {
+      .detail-view {
+        grid-template-columns: 1fr;
+      }
+      .detail-view [data-widget-id],
+      .widget-grid-placeholder {
+        grid-column: 1 !important;
+        grid-row: auto !important;
+      }
+    }
+
     .widget-title-group {
       display: flex;
       align-items: center;
@@ -190,16 +213,20 @@
     .drag-handle:active {
       cursor: grabbing;
     }
-    [data-widget-id] {
-      transition: opacity 0.15s, outline-color 0.15s;
+    /* Das gezogene Widget selbst: löst sich aus dem Grid-Fluss und folgt per JS dem Zeiger. */
+    [data-widget-id].widget-dragging-grid {
+      position: fixed;
+      z-index: 300;
+      pointer-events: none;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+      transform: scale(1.02);
     }
-    [data-widget-id].widget-dragging {
-      opacity: 0.45;
-    }
-    [data-widget-id].widget-drag-over {
-      outline: 2px dashed var(--accent);
-      outline-offset: -2px;
-      background: var(--bg-card-hover);
+    /* Die dadurch frei werdende Zielposition im Grid – dezent markiert, verschiebt sich live
+       mit, während gezogen wird ("andere Widgets rücken zur Seite"). */
+    .widget-grid-placeholder {
+      background: var(--bg-elevated);
+      border: 2px dashed var(--accent-dim);
+      border-radius: var(--radius);
     }
 
     /* ─── Tages-Überblick (steht immer über den per Drag & Drop sortierbaren Widgets) ─── */
@@ -1829,13 +1856,31 @@
     // Reihenfolge der Haupt-Widgets (Statistik ist Teil des "habits"-Widgets, kein eigenes).
     const DEFAULT_WIDGET_ORDER = ['sidequest', 'habits', 'todos', 'notes'];
 
-    // Stellt sicher, dass widgetOrder immer genau die bekannten Widget-IDs enthält – fehlende
-    // IDs (z. B. nach einem Update oder aus altem localStorage) werden hinten ergänzt, unbekannte
-    // IDs verworfen.
-    function normalizeWidgetOrder(order) {
-      const valid = (Array.isArray(order) ? order : []).filter(id => DEFAULT_WIDGET_ORDER.includes(id));
-      const missing = DEFAULT_WIDGET_ORDER.filter(id => !valid.includes(id));
-      return [...valid, ...missing];
+    // Anzahl Spalten im Widget-Grid. col/row jedes Eintrags in state.settings.widgetLayout
+    // werden immer aus einer laufenden Reihenfolge abgeleitet (row-major: Index -> col/row) –
+    // das Grid ist damit zwar frei ziehbar, bleibt dabei aber immer lückenlos gepackt, ähnlich
+    // wie z. B. beim Umsortieren von App-Icons auf einem Homescreen.
+    const GRID_COLS = 2;
+
+    function widgetSequenceToLayout(order) {
+      return order.map((id, i) => ({ id, col: i % GRID_COLS, row: Math.floor(i / GRID_COLS) }));
+    }
+
+    const DEFAULT_WIDGET_LAYOUT = widgetSequenceToLayout(DEFAULT_WIDGET_ORDER);
+
+    // Stellt sicher, dass widgetLayout immer genau die bekannten Widget-IDs enthält (fehlende
+    // hinten ergänzt, unbekannte verworfen, Duplikate entfernt) und col/row lückenlos aus der
+    // Reihenfolge neu berechnet sind. Nimmt sowohl das neue Format (Array aus {id,...}) als auch
+    // das alte, rein lineare widgetOrder-Array (Array aus IDs) entgegen, für die Migration
+    // bestehender localStorage-Daten aus der vorherigen, eindimensionalen Drag&Drop-Version.
+    function normalizeWidgetLayout(layout) {
+      const rawOrder = (Array.isArray(layout) ? layout : [])
+        .map(item => (typeof item === 'string' ? item : item && item.id))
+        .filter(id => DEFAULT_WIDGET_ORDER.includes(id));
+      const order = [];
+      rawOrder.forEach(id => { if (!order.includes(id)) order.push(id); });
+      DEFAULT_WIDGET_ORDER.forEach(id => { if (!order.includes(id)) order.push(id); });
+      return widgetSequenceToLayout(order);
     }
 
     const ACCENT_THEMES = {
@@ -2385,7 +2430,7 @@
         defaultDifficulty: 'mittel',
         viewMode: 'month', // 'month' | 'week' | 'stats' – welche Ansicht der Habit-Tabelle aktiv ist
         statsMode: 'month', // 'month' | 'year' – Sub-Ansicht innerhalb der Statistik
-        widgetOrder: [...DEFAULT_WIDGET_ORDER], // Reihenfolge der Haupt-Widgets, per Drag & Drop änderbar
+        widgetLayout: DEFAULT_WIDGET_LAYOUT.map(w => ({ ...w })), // Grid-Position der Haupt-Widgets, per Drag & Drop änderbar
       },
     };
 
@@ -2406,7 +2451,10 @@
           if (saved.settings) {
             state.settings = Object.assign(state.settings, saved.settings);
           }
-          state.settings.widgetOrder = normalizeWidgetOrder(state.settings.widgetOrder);
+          // Nimmt sowohl bereits vorhandenes widgetLayout als auch, zur Migration, ein altes
+          // rein lineares widgetOrder-Array aus der vorherigen Drag&Drop-Version entgegen.
+          state.settings.widgetLayout = normalizeWidgetLayout(state.settings.widgetLayout || state.settings.widgetOrder);
+          delete state.settings.widgetOrder;
           if (saved.activeGroup && state.groups.includes(saved.activeGroup)) {
             state.activeGroup = saved.activeGroup;
           }
@@ -3924,70 +3972,63 @@
     }
 
     // ═══════════════════════════════════════════
-    // WIDGET-REIHENFOLGE (Drag & Drop)
+    // WIDGET-GRID (Drag & Drop)
     // ═══════════════════════════════════════════
+    const WIDGET_PLACEHOLDER = '__placeholder__';
 
-    // Ordnet die Widget-Container in #detailView gemäß state.settings.widgetOrder neu an.
-    // appendChild auf ein bereits im DOM vorhandenes Element VERSCHIEBT es nur (kein Klon),
-    // nacheinander in der gewünschten Reihenfolge aufgerufen ergibt das die neue Anordnung.
-    function applyWidgetOrder() {
+    // Liefert die aktuell gespeicherte Reihenfolge als flaches Array von Widget-IDs
+    // (row-major: erst nach row, dann nach col sortiert).
+    function getWidgetSequence() {
+      return state.settings.widgetLayout
+        .slice()
+        .sort((a, b) => (a.row - b.row) || (a.col - b.col))
+        .map(w => w.id);
+    }
+
+    // Ordnet die Widget-Container in #detailView gemäß state.settings.widgetLayout neu an:
+    // appendChild in Reihenfolge sorgt für die passende DOM-Reihenfolge (wichtig als Fallback
+    // für die einspaltige Ansicht auf schmalen Bildschirmen), grid-column/-row fürs 2-spaltige Grid.
+    function applyWidgetLayout() {
       const container = document.getElementById('detailView');
-      state.settings.widgetOrder.forEach(id => {
+      getWidgetSequence().forEach((id, i) => {
         const el = container.querySelector(`[data-widget-id="${id}"]`);
-        if (el) container.appendChild(el);
+        if (!el) return;
+        container.appendChild(el);
+        el.style.gridColumn = String((i % GRID_COLS) + 1);
+        el.style.gridRow = String(Math.floor(i / GRID_COLS) + 1);
       });
     }
 
-    // Verschiebt draggedId in state.settings.widgetOrder an die Position relativ zu targetId
-    // (davor oder danach), speichert und wendet die neue Reihenfolge im DOM an.
-    function reorderWidget(draggedId, targetId, insertAfter) {
-      if (!draggedId || draggedId === targetId) return;
-      const order = state.settings.widgetOrder.filter(id => id !== draggedId);
-      let toIndex = order.indexOf(targetId);
-      if (toIndex === -1) {
-        toIndex = order.length;
-      } else if (insertAfter) {
-        toIndex += 1;
-      }
-      order.splice(toIndex, 0, draggedId);
-      state.settings.widgetOrder = order;
+    // Übernimmt eine neue Reihenfolge (Array von Widget-IDs) als state.settings.widgetLayout,
+    // speichert und wendet sie im DOM/Grid an.
+    function saveWidgetSequence(sequence) {
+      state.settings.widgetLayout = widgetSequenceToLayout(sequence);
       saveState();
-      applyWidgetOrder();
+      applyWidgetLayout();
     }
 
-    // Verkabelt sowohl die native HTML5-Drag&Drop-API (Desktop-Browser) als auch einen
-    // manuellen Touch-Fallback (nötig, da iOS Safari dragstart/dragover für Touch-Gesten
-    // nicht zuverlässig auslöst). Beide Wege laufen am Ende auf dieselbe reorderWidget()-Logik.
+    // Verkabelt das Ziehen der Widgets per Pointer Events (vereinheitlicht Maus, Touch und Stift
+    // in einem Code-Pfad – dadurch kann das gezogene Widget bei JEDER Eingabeart sichtbar dem
+    // Zeiger folgen, was mit der nativen HTML5-Drag&Drop-API allein nicht zuverlässig möglich ist,
+    // da Chrome/Safari dort das Quellelement ausblenden und stattdessen ein eigenes Drag-Bild
+    // zeichnen). move/up/cancel hängen bewusst an document, nicht am Griff selbst, weil Maus-
+    // Pointer-Events – anders als Touch – sonst nicht mehr feuern, sobald der Zeiger den Griff
+    // verlässt.
     function initWidgetDragAndDrop() {
       const container = document.getElementById('detailView');
+
       let draggedId = null;
-      let currentTargetEl = null;
-      let currentInsertAfter = false;
-
-      function clearDragOverStyling() {
-        container.querySelectorAll('.widget-drag-over').forEach(el => el.classList.remove('widget-drag-over'));
-        currentTargetEl = null;
-      }
-
-      function updateDropTarget(clientY, overEl) {
-        const widgetEl = overEl ? overEl.closest('[data-widget-id]') : null;
-        if (!widgetEl || widgetEl.dataset.widgetId === draggedId) return;
-        const rect = widgetEl.getBoundingClientRect();
-        const insertAfter = clientY > rect.top + rect.height / 2;
-        if (widgetEl !== currentTargetEl) {
-          clearDragOverStyling();
-          widgetEl.classList.add('widget-drag-over');
-          currentTargetEl = widgetEl;
-        }
-        currentInsertAfter = insertAfter;
-      }
+      let draggedEl = null;
+      let placeholderEl = null;
+      let dragSequence = [];
+      let pointerOffsetX = 0;
+      let pointerOffsetY = 0;
 
       // ── Auto-Scroll während des Ziehens ──
       // Die Seite ist mit allen Widgets inzwischen deutlich höher als der sichtbare Viewport,
-      // Quelle und Ziel eines Drags liegen also oft nicht gleichzeitig im Bild. Da touchmove
-      // während eines Drags preventDefault() aufruft (verhindert normales Scrollen), braucht es
-      // hier einen eigenen Auto-Scroll: nah am oberen/unteren Rand gezogen -> Seite scrollt
-      // automatisch, bis der Finger/Mauszeiger wieder von der Kante wegbewegt wird.
+      // Quelle und Ziel eines Drags liegen also oft nicht gleichzeitig im Bild. Da preventDefault()
+      // während eines Drags das normale Scrollen verhindert, braucht es hier einen eigenen
+      // Auto-Scroll: nah am oberen/unteren Rand gezogen -> Seite scrollt automatisch weiter.
       const AUTO_SCROLL_EDGE = 70;
       const AUTO_SCROLL_SPEED = 14;
       let autoScrollTimer = null;
@@ -4013,87 +4054,139 @@
         if (dir === 0) return;
         autoScrollTimer = setInterval(() => {
           window.scrollBy(0, dir * AUTO_SCROLL_SPEED);
-          // Der Finger bewegt sich beim Auto-Scroll nicht mehr, das darunterliegende Widget
-          // aber schon – Drop-Ziel also auch ohne neues touchmove/dragover neu bestimmen.
-          const overEl = document.elementFromPoint(lastPointerX, lastPointerY);
-          updateDropTarget(lastPointerY, overEl);
+          // Der Zeiger bewegt sich beim Auto-Scroll nicht mehr, das darunterliegende Widget
+          // aber schon – Zielposition also auch ohne neue Zeigerbewegung neu bestimmen.
+          updateDragTarget(lastPointerX, lastPointerY);
         }, 16);
       }
 
-      // ── Native HTML5 Drag & Drop (Maus / Trackpad) ──
-      container.querySelectorAll('.drag-handle[draggable="true"]').forEach(handle => {
-        handle.addEventListener('dragstart', e => {
-          draggedId = handle.dataset.widgetHandle;
-          const widgetEl = handle.closest('[data-widget-id]');
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', draggedId);
-          if (widgetEl) widgetEl.classList.add('widget-dragging');
+      // Positioniert alle realen Widgets + den Platzhalter gemäß dragSequence im Grid
+      // (grid-column/-row) – ruft dadurch live ein "Zur-Seite-Rücken" der anderen Widgets hervor,
+      // ohne dass währenddessen etwas aus dem DOM entfernt/neu eingefügt werden muss.
+      function applySequencePositions() {
+        dragSequence.forEach((id, i) => {
+          const el = id === WIDGET_PLACEHOLDER ? placeholderEl : container.querySelector(`[data-widget-id="${id}"]`);
+          if (!el) return;
+          el.style.gridColumn = String((i % GRID_COLS) + 1);
+          el.style.gridRow = String(Math.floor(i / GRID_COLS) + 1);
         });
-        handle.addEventListener('dragend', () => {
-          container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
-          clearDragOverStyling();
-          stopAutoScroll();
-          draggedId = null;
-        });
-      });
+      }
 
-      container.querySelectorAll('[data-widget-id]').forEach(widgetEl => {
-        widgetEl.addEventListener('dragover', e => {
-          if (!draggedId) return;
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          updateDropTarget(e.clientY, widgetEl);
-          updateAutoScroll(e.clientX, e.clientY);
-        });
-        widgetEl.addEventListener('drop', e => {
-          if (!draggedId) return;
-          e.preventDefault();
-          const targetId = widgetEl.dataset.widgetId;
-          reorderWidget(draggedId, targetId, currentInsertAfter);
-          clearDragOverStyling();
-          stopAutoScroll();
-        });
-      });
+      // Bestimmt aus der Zeigerposition das Widget darunter und ob der Platzhalter davor oder
+      // dahinter einsortiert werden soll (vertikal dominant, bei gleicher Zeile horizontal), und
+      // verschiebt den Platzhalter in dragSequence entsprechend.
+      function updateDragTarget(clientX, clientY) {
+        const overEl = document.elementFromPoint(clientX, clientY);
+        const widgetEl = overEl ? overEl.closest('[data-widget-id]') : null;
+        if (!widgetEl) return;
+        const targetId = widgetEl.dataset.widgetId;
+        if (targetId === draggedId) return;
 
-      // ── Touch-Fallback (iPhone/iOS Safari & andere mobile Browser) ──
+        const rect = widgetEl.getBoundingClientRect();
+        const sameRow = clientY >= rect.top && clientY <= rect.bottom;
+        const insertAfter = sameRow
+          ? clientX > rect.left + rect.width / 2
+          : clientY > rect.top + rect.height / 2;
+
+        const realOrder = dragSequence.filter(id => id !== WIDGET_PLACEHOLDER);
+        let idx = realOrder.indexOf(targetId);
+        if (idx === -1) return;
+        if (insertAfter) idx += 1;
+        realOrder.splice(idx, 0, WIDGET_PLACEHOLDER);
+        if (realOrder.join('|') === dragSequence.join('|')) return; // unverändert, kein Re-Layout nötig
+        dragSequence = realOrder;
+        applySequencePositions();
+      }
+
+      function startDrag(handle, clientX, clientY) {
+        draggedId = handle.dataset.widgetHandle;
+        draggedEl = handle.closest('[data-widget-id]');
+        if (!draggedEl) return;
+
+        const rect = draggedEl.getBoundingClientRect();
+        pointerOffsetX = clientX - rect.left;
+        pointerOffsetY = clientY - rect.top;
+
+        dragSequence = getWidgetSequence().map(id => (id === draggedId ? WIDGET_PLACEHOLDER : id));
+
+        placeholderEl = document.createElement('div');
+        placeholderEl.className = 'widget-grid-placeholder';
+        placeholderEl.style.minHeight = rect.height + 'px';
+        container.appendChild(placeholderEl);
+
+        draggedEl.classList.add('widget-dragging-grid');
+        draggedEl.style.width = rect.width + 'px';
+        draggedEl.style.left = rect.left + 'px';
+        draggedEl.style.top = rect.top + 'px';
+
+        applySequencePositions();
+      }
+
+      function moveDrag(clientX, clientY) {
+        if (!draggedEl) return;
+        draggedEl.style.left = (clientX - pointerOffsetX) + 'px';
+        draggedEl.style.top = (clientY - pointerOffsetY) + 'px';
+        updateDragTarget(clientX, clientY);
+        updateAutoScroll(clientX, clientY);
+      }
+
+      function resetDraggedElStyle() {
+        draggedEl.classList.remove('widget-dragging-grid');
+        draggedEl.style.width = '';
+        draggedEl.style.left = '';
+        draggedEl.style.top = '';
+        draggedEl.style.gridColumn = '';
+        draggedEl.style.gridRow = '';
+      }
+
+      function endDrag() {
+        if (!draggedEl) return;
+        resetDraggedElStyle();
+        const finalSequence = dragSequence.map(id => (id === WIDGET_PLACEHOLDER ? draggedId : id));
+        if (placeholderEl) { placeholderEl.remove(); placeholderEl = null; }
+        stopAutoScroll();
+        saveWidgetSequence(finalSequence);
+        draggedId = null;
+        draggedEl = null;
+        dragSequence = [];
+      }
+
+      function cancelDrag() {
+        if (!draggedEl) return;
+        resetDraggedElStyle();
+        if (placeholderEl) { placeholderEl.remove(); placeholderEl = null; }
+        stopAutoScroll();
+        applyWidgetLayout(); // zurück auf die zuletzt gespeicherte Anordnung
+        draggedId = null;
+        draggedEl = null;
+        dragSequence = [];
+      }
+
       container.querySelectorAll('.drag-handle').forEach(handle => {
-        let touchActive = false;
+        handle.addEventListener('pointerdown', e => {
+          if (e.button > 0) return; // nur primäre Maustaste / Touch / Stift
+          startDrag(handle, e.clientX, e.clientY);
+          e.preventDefault();
 
-        handle.addEventListener('touchstart', e => {
-          touchActive = true;
-          draggedId = handle.dataset.widgetHandle;
-          const widgetEl = handle.closest('[data-widget-id]');
-          if (widgetEl) widgetEl.classList.add('widget-dragging');
-        }, { passive: true });
-
-        handle.addEventListener('touchmove', e => {
-          if (!touchActive || !draggedId) return;
-          e.preventDefault(); // verhindert Scrollen der Seite während des Ziehens
-          const touch = e.touches[0];
-          const overEl = document.elementFromPoint(touch.clientX, touch.clientY);
-          updateDropTarget(touch.clientY, overEl);
-          updateAutoScroll(touch.clientX, touch.clientY);
-        }, { passive: false });
-
-        handle.addEventListener('touchend', () => {
-          if (!touchActive) return;
-          touchActive = false;
-          if (draggedId && currentTargetEl) {
-            const targetId = currentTargetEl.dataset.widgetId;
-            reorderWidget(draggedId, targetId, currentInsertAfter);
-          }
-          container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
-          clearDragOverStyling();
-          stopAutoScroll();
-          draggedId = null;
-        });
-
-        handle.addEventListener('touchcancel', () => {
-          touchActive = false;
-          container.querySelectorAll('.widget-dragging').forEach(el => el.classList.remove('widget-dragging'));
-          clearDragOverStyling();
-          stopAutoScroll();
-          draggedId = null;
+          const onMove = ev => {
+            ev.preventDefault(); // verhindert Scrollen der Seite während des Ziehens
+            moveDrag(ev.clientX, ev.clientY);
+          };
+          const onUp = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            document.removeEventListener('pointercancel', onCancel);
+            endDrag();
+          };
+          const onCancel = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            document.removeEventListener('pointercancel', onCancel);
+            cancelDrag();
+          };
+          document.addEventListener('pointermove', onMove, { passive: false });
+          document.addEventListener('pointerup', onUp);
+          document.addEventListener('pointercancel', onCancel);
         });
       });
     }
@@ -4113,7 +4206,7 @@
       applyAnimationsSetting();
       updateDateBadge();
 
-      applyWidgetOrder();
+      applyWidgetLayout();
       initWidgetDragAndDrop();
 
       renderGroupTabs();
