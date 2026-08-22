@@ -2091,7 +2091,7 @@
       groups: [...DEFAULT_GROUPS],
       habits: [...DEFAULT_HABITS],
       checks: {},       // "YYYY-MM-DD_habitId" -> true
-      todos: [],        // {id, text, done}
+      todos: [],        // {id, text, done, recurrence, recurrenceDays, lastGeneratedDate, recurringParentId, instanceDate} – siehe generateRecurringTodos()
       notes: '',
       activeGroup: 'Gesundheit',
       viewYear: null,
@@ -2641,6 +2641,10 @@
 
     const WEEKDAY_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+    // 2-Buchstaben-Wochentagscodes für wiederkehrende To-Dos (recurrenceDays), Index = Date.getDay()
+    // (0 = Sonntag). Angelehnt an die iCal-RRULE-BYDAY-Konvention (MO, TU, WE, TH, FR, SA, SU).
+    const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
     function renderWeekTable() {
       document.getElementById('weekLabel').textContent = formatWeekLabel(state.currentWeekStart);
 
@@ -2941,6 +2945,51 @@
 
       iconEl.textContent = '☀️';
       el.innerHTML = 'Heute: ' + parts.join(' · ');
+    }
+
+    // ═══════════════════════════════════════════
+    // WIEDERKEHRENDE TO-DOS
+    // ═══════════════════════════════════════════
+    // Prüft alle To-Do-"Vorlagen" (recurrence !== null) und legt für jede, die heute fällig ist
+    // (täglich immer, wöchentlich nur an den gewählten Wochentagen) eine neue, unerledigte
+    // Tages-Instanz an – aber nur, falls für heute noch keine existiert (weder offen noch schon
+    // erledigt; darum wird die tatsächliche Existenz geprüft, nicht nur lastGeneratedDate).
+    // Die Vorlage selbst bleibt dabei unverändert und wird nie als erledigt markiert – nur
+    // lastGeneratedDate wird aktualisiert. Gedacht zum Aufruf beim App-Start und bei einem
+    // Tageswechsel während die App offen bleibt (Verkabelung folgt in einem späteren Schritt).
+    function generateRecurringTodos() {
+      const today = todayStr();
+      const todayCode = WEEKDAY_CODES[new Date().getDay()];
+      let changed = false;
+
+      state.todos.forEach(template => {
+        if (!template.recurrence) return; // keine Vorlage, sondern ein normales/generiertes To-Do
+
+        const isDue = template.recurrence === 'daily'
+          || (template.recurrence === 'weekly' && (template.recurrenceDays || []).includes(todayCode));
+        if (!isDue) return;
+
+        const hasTodayInstance = state.todos.some(t =>
+          t.recurringParentId === template.id && t.instanceDate === today
+        );
+        if (hasTodayInstance) return;
+
+        state.todos.push({
+          id: uid(),
+          text: template.text,
+          done: false,
+          recurrence: null,
+          recurrenceDays: null,
+          lastGeneratedDate: null,
+          recurringParentId: template.id,
+          instanceDate: today,
+        });
+        template.lastGeneratedDate = today;
+        changed = true;
+      });
+
+      if (changed) saveState();
+      return changed;
     }
 
     // ═══════════════════════════════════════════
@@ -3451,7 +3500,16 @@
       const input = document.getElementById('todoInput');
       const text = input.value.trim();
       if (!text) return;
-      state.todos.push({ id: uid(), text, done: false });
+      state.todos.push({
+        id: uid(),
+        text,
+        done: false,
+        recurrence: null,
+        recurrenceDays: null,
+        lastGeneratedDate: null,
+        recurringParentId: null,
+        instanceDate: null,
+      });
       input.value = '';
       saveState();
       renderTodos();
